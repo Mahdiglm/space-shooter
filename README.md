@@ -105,7 +105,30 @@ python main.py
 
 ## Development
 
-This project is open source and welcomes contributions! Please check out our [Contributing Guidelines](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
+This project is open source and welcomes contributions! We have several ways you can help:
+
+### Reporting Issues
+- Use our [Issue Tracker](https://github.com/Mahdiglm/space-shooter/issues) to report bugs
+- Follow the bug report template for detailed information
+- Include system information and steps to reproduce
+
+### Suggesting Features
+- Submit feature requests through our [Issue Tracker](https://github.com/Mahdiglm/space-shooter/issues)
+- Use the feature request template to describe your idea
+- Explain why the feature would be beneficial
+
+### Contributing Code
+- Fork the repository
+- Create a new branch for your feature
+- Follow our coding standards
+- Submit a pull request
+
+### Documentation
+- Help improve documentation
+- Add comments to complex code
+- Create tutorials or guides
+
+For detailed guidelines, please check out our [Contributing Guidelines](CONTRIBUTING.md).
 
 ## License
 

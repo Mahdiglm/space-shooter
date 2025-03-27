@@ -1,48 +1,111 @@
-# Contributing to Space Shooter
+# Contributing to Space Shooter Game
 
-We love your input! We want to make contributing to this project as easy and transparent as possible, whether it's:
+Thank you for your interest in contributing to the Space Shooter Game! This document provides guidelines and instructions for contributing to the project.
 
-- Reporting a bug
-- Discussing the current state of the code
-- Submitting a fix
-- Proposing new features
-- Becoming a maintainer
+## Code of Conduct
 
-## We Develop with Github
-We use GitHub to host code, to track issues and feature requests, as well as accept pull requests.
+By participating in this project, you agree to abide by our Code of Conduct. Please read it carefully.
 
-## We Use [Github Flow](https://guides.github.com/introduction/flow/index.html)
-Pull requests are the best way to propose changes to the codebase. We actively welcome your pull requests:
+## How to Contribute
 
-1. Fork the repo and create your branch from `main`.
-2. If you've added code that should be tested, add tests.
-3. If you've changed APIs, update the documentation.
-4. Ensure the test suite passes.
-5. Make sure your code lints.
-6. Issue that pull request!
+### Reporting Bugs
 
-## Any contributions you make will be under the MIT Software License
-In short, when you submit code changes, your submissions are understood to be under the same [MIT License](http://choosealicense.com/licenses/mit/) that covers the project. Feel free to contact the maintainers if that's a concern.
+1. Check if the bug has already been reported in the [Issues](https://github.com/Mahdiglm/space-shooter/issues) section
+2. If not, create a new issue using the Bug Report template
+3. Include as much information as possible:
+   - Steps to reproduce the bug
+   - Expected behavior
+   - Actual behavior
+   - Screenshots or videos if applicable
+   - Your system information (OS, Python version, etc.)
 
-## Report bugs using Github's [issue tracker]
-We use GitHub issues to track public bugs. Report a bug by [opening a new issue](); it's that easy!
+### Suggesting Enhancements
 
-## Write bug reports with detail, background, and sample code
+1. Check if the enhancement has already been suggested in the [Issues](https://github.com/Mahdiglm/space-shooter/issues) section
+2. If not, create a new issue using the Feature Request template
+3. Describe the enhancement in detail and explain why it would be beneficial
 
-**Great Bug Reports** tend to have:
+### Pull Requests
 
-- A quick summary and/or background
-- Steps to reproduce
-  - Be specific!
-  - Give sample code if you can.
-- What you expected would happen
-- What actually happens
-- Notes (possibly including why you think this might be happening, or stuff you tried that didn't work)
+1. Fork the repository
+2. Create a new branch for your feature/fix (`git checkout -b feature/amazing-feature`)
+3. Make your changes
+4. Test your changes thoroughly
+5. Commit your changes (`git commit -m 'Add amazing feature'`)
+6. Push to the branch (`git push origin feature/amazing-feature`)
+7. Open a Pull Request
 
-## Use a Consistent Coding Style
+## Development Setup
 
-* Use 4 spaces for indentation rather than tabs
-* You can try running `autopep8 --in-place --aggressive --aggressive *.py` for style unification
+1. Clone the repository:
+```bash
+git clone https://github.com/Mahdiglm/space-shooter.git
+cd space-shooter
+```
+
+2. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+3. Run the game to test:
+```bash
+python main.py
+```
+
+## Coding Standards
+
+### Python Style Guide
+
+- Follow PEP 8 guidelines
+- Use meaningful variable and function names
+- Add docstrings to functions and classes
+- Keep functions focused and single-purpose
+- Comment complex logic
+
+### Code Organization
+
+- Keep related code together
+- Use appropriate class and function organization
+- Maintain consistent file structure
+- Follow the existing project structure
+
+### Testing
+
+- Test your changes thoroughly
+- Ensure the game runs without errors
+- Test edge cases and different scenarios
+- Verify performance impact of changes
+
+## Areas Needing Assistance
+
+Current areas that could use community help:
+
+1. Bug Fixes
+   - Check the [Issues](https://github.com/Mahdiglm/space-shooter/issues) section for open bugs
+   - Look for issues labeled "bug" or "help wanted"
+
+2. Feature Development
+   - Review feature requests in the [Issues](https://github.com/Mahdiglm/space-shooter/issues) section
+   - Look for issues labeled "enhancement"
+
+3. Documentation
+   - Help improve documentation
+   - Add comments to complex code
+   - Create tutorials or guides
+
+4. Testing
+   - Help test new features
+   - Report bugs
+   - Suggest improvements
+
+## Getting Help
+
+- Check the [Issues](https://github.com/Mahdiglm/space-shooter/issues) section
+- Review existing documentation
+- Ask questions in issue comments
+- Contact the maintainers if needed
 
 ## License
-By contributing, you agree that your contributions will be licensed under its MIT License. 
+
+By contributing, you agree that your contributions will be licensed under the project's MIT License.

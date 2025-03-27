@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.3] - 2025-03-27
+
+### Added
+- Added comprehensive CONTRIBUTING.md with guidelines for contributors
+- Added GitHub issue templates for bug reports and feature requests
+- Added structured community engagement documentation
+- Added development setup instructions
+- Added coding standards and best practices guide
+
+### Changed
+- Improved project documentation for community involvement
+- Enhanced issue reporting process with templates
+- Updated README.md with contribution information
+
 ## [0.3.2] - 2025-03-27
 
 ### Added
