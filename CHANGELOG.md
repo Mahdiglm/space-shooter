@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Release Descriptions
 
+### Version 0.3.8.5 (Beta)
+A cleanup and bug-fixing release that addresses remaining issues with the game's architecture. This version fully transitions to an object-oriented design, resolves runtime errors, and ensures consistent high score tracking.
+
 ### Version 0.3.8 (Beta)
 A stability-focused release that fixes critical bugs and improves the robustness of the game. This version addresses initialization issues, properly implements the performance-optimized systems, and ensures smooth gameplay under various conditions.
 
@@ -42,6 +45,31 @@ A bug-fix and improvement release that adds essential game features like scoring
 
 ### Version 0.1.0 (Pre-Alpha)
 The initial release of the Space Shooter game, establishing the basic game mechanics and structure. This version provides the foundation for all future development.
+
+## [0.3.8.5] - 2025-03-28
+
+### Added
+- Added missing `boss_spawned` initialization in Game class
+- Added `create_explosion` method to Game class
+- Added proper methods for game screens (game over, pause)
+- Added proper high score tracking throughout the game
+- Added class-based health bar drawing method
+- Added proper enemy and powerup spawning methods in Game class
+
+### Changed
+- Converted global functions to Game class methods
+- Removed redundant global variables and setup code
+- Improved method organization within Game class
+- Ensured proper integration of all components with the Game class
+- Enhanced score tracking with persistent high score updates
+
+### Fixed
+- Fixed AttributeError with missing boss_spawned attribute
+- Fixed invalid method calls in game rendering
+- Fixed incorrect reference to global variables in Game methods
+- Fixed game over and pause screen display
+- Fixed missing helper methods
+- Fixed namespace issues between global and class methods
 
 ## [0.3.8] - 2025-03-28
 

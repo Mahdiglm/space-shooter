@@ -702,137 +702,11 @@ class Star(pygame.sprite.Sprite):
             self.rect.y = random.randrange(-50, -10)
             self.speedy = random.randrange(1, 3)
 
-# Create sprite groups
-all_sprites = pygame.sprite.Group()
-enemies = pygame.sprite.Group()
-bullets = pygame.sprite.Group()
-enemy_bullets = pygame.sprite.Group()
-powerups = pygame.sprite.Group()
-explosions = pygame.sprite.Group()
-stars = pygame.sprite.Group()
-player = Player()
-
-all_sprites.add(player)
-
-# Create background stars
-if background_img is None:  # Only add stars if no background image
-    for i in range(50):
-        star = Star()
-        stars.add(star)
-        all_sprites.add(star)
-
-# Spawn initial enemies
-for i in range(6):
-    enemy = Enemy()
-    all_sprites.add(enemy)
-    enemies.add(enemy)
-
-# Game variables
-score = 0
-high_score = 0  # Added high score tracking
-game_over = False
-paused = False
-clock = pygame.time.Clock()
-difficulty = 1.0
-boss_spawned = False
-boss = None  # Reference to boss when spawned
-
-def draw_health_bar(surf, x, y, pct):
-    """
-    Draw a health bar on the screen.
-    
-    Args:
-        surf (Surface): Surface to draw on
-        x (int): X position
-        y (int): Y position
-        pct (float): Percentage of health (0.0 to 1.0)
-    """
-    if pct < 0:
-        pct = 0
-    BAR_LENGTH = 100
-    BAR_HEIGHT = 10
-    fill = (pct / 100) * BAR_LENGTH
-    outline_rect = pygame.Rect(x, y, BAR_LENGTH, BAR_HEIGHT)
-    fill_rect = pygame.Rect(x, y, fill, BAR_HEIGHT)
-    if pct > 0.6:
-        color = GREEN
-    elif pct > 0.3:
-        color = YELLOW
-    else:
-        color = RED
-    pygame.draw.rect(surf, color, fill_rect)
-    pygame.draw.rect(surf, WHITE, outline_rect, 2)
-
-def spawn_enemy():
-    """
-    Spawn a new enemy based on probability and return it.
-    Handles enemy type selection based on ENEMY_TYPES configuration.
-    
-    Returns:
-        Enemy: A new enemy sprite
-    """
-    enemy_type = random.random()
-    if enemy_type < 0.6:
-        enemy = Enemy()
-    elif enemy_type < 0.8:
-        enemy = FastEnemy()
-    else:
-        enemy = TankEnemy()
-    enemy.speedy *= difficulty
-    return enemy
-
-def spawn_powerup(x, y):
-    """
-    Spawn a random power-up at the given position.
-    
-    Args:
-        x (int): X position
-        y (int): Y position
-        
-    Returns:
-        PowerUp: A new power-up sprite
-    """
-    power_type = random.choice(["health", "power", "shield"])
-    return PowerUp(x, y, power_type)
-
-def show_game_over():
-    """
-    Display the game over screen with final score.
-    """
-    game_over_text = font.render("GAME OVER! Press R to restart", True, WHITE)
-    score_text = font.render(f"Final Score: {score}", True, WHITE)
-    high_score_text = font.render(f"High Score: {high_score}", True, YELLOW)
-    
-    screen.blit(game_over_text, (WINDOW_WIDTH//2 - game_over_text.get_width()//2, WINDOW_HEIGHT//2 - 60))
-    screen.blit(score_text, (WINDOW_WIDTH//2 - score_text.get_width()//2, WINDOW_HEIGHT//2))
-    screen.blit(high_score_text, (WINDOW_WIDTH//2 - high_score_text.get_width()//2, WINDOW_HEIGHT//2 + 40))
-    
-    credit_text = small_font.render("Press ESC to quit", True, WHITE)
-    screen.blit(credit_text, (WINDOW_WIDTH//2 - credit_text.get_width()//2, WINDOW_HEIGHT - 50))
-    
-    pygame.display.flip()
-
-def show_pause_screen():
-    """
-    Display pause screen overlay.
-    """
-    pause_text = font.render("PAUSED", True, WHITE)
-    resume_text = small_font.render("Press P to resume", True, WHITE)
-    
-    overlay = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.SRCALPHA)
-    overlay.fill((0, 0, 0, 150))  # Semi-transparent black
-    screen.blit(overlay, (0, 0))
-    
-    screen.blit(pause_text, (WINDOW_WIDTH//2 - pause_text.get_width()//2, WINDOW_HEIGHT//2 - 50))
-    screen.blit(resume_text, (WINDOW_WIDTH//2 - resume_text.get_width()//2, WINDOW_HEIGHT//2 + 10))
-    
-    pygame.display.flip()
-
 # Start background music
-try:
-    pygame.mixer.music.play(loops=-1)  # Play the music in an infinite loop
-except:
-    pass
+#try:
+#    pygame.mixer.music.play(loops=-1)  # Play the music in an infinite loop
+#except:
+#    pass
 
 class Game:
     """
@@ -856,6 +730,7 @@ class Game:
             self.last_enemy_spawn = 0
             self.last_boss_spawn = 0
             self.show_fps = False
+            self.boss_spawned = False  # Initialize boss_spawned flag
             
             # Initialize player
             self.player = Player()
@@ -879,7 +754,7 @@ class Game:
             
             # Spawn initial enemies
             for i in range(6):
-                enemy = spawn_enemy()
+                enemy = self.spawn_enemy()
                 self.sprite_manager.add_sprite(enemy, 'enemy')
                 
             log_info("Game initialized successfully")
@@ -1025,7 +900,7 @@ class Game:
         
         # Create initial enemies
         for i in range(6):
-            enemy = spawn_enemy()
+            enemy = self.spawn_enemy()
             self.sprite_manager.add_sprite(enemy, 'enemy')
         
         # Force full redraw
@@ -1080,9 +955,13 @@ class Game:
                         score_value *= self.player.points_multiplier
                     self.score += score_value
                     
+                    # Update high score if needed
+                    if self.score > self.high_score:
+                        self.high_score = self.score
+                    
                     # Chance to spawn power-up at enemy position
                     if random.random() < POWERUP_CHANCE:
-                        powerup = spawn_powerup(enemy.rect.centerx, enemy.rect.centery)
+                        powerup = self.spawn_powerup(enemy.rect.centerx, enemy.rect.centery)
                         self.sprite_manager.add_sprite(powerup, 'powerup')
                         
                     # Create explosion at enemy position
@@ -1098,6 +977,9 @@ class Game:
                     if not self.player.take_damage():
                         # Player was destroyed
                         self.game_over = True
+                        # Update high score if needed
+                        if self.score > self.high_score:
+                            self.high_score = self.score
                         self.create_explosion(self.player.rect.center, size="xl")
                         if game_over_sound:
                             game_over_sound.play()
@@ -1124,6 +1006,9 @@ class Game:
                     if not self.player.take_damage():
                         # Player was destroyed
                         self.game_over = True
+                        # Update high score if needed
+                        if self.score > self.high_score:
+                            self.high_score = self.score
                         self.create_explosion(self.player.rect.center, size="xl")
                         if game_over_sound:
                             game_over_sound.play()
@@ -1172,7 +1057,7 @@ class Game:
             self.screen.blit(high_score_text, (10, 50))
             
             # Draw health bar
-            draw_health_bar(self.screen, 10, 80, self.player.health / self.player.max_health)
+            self.draw_health_bar(self.screen, 10, 80, self.player.health / self.player.max_health)
             
             # Shield timer if active
             if self.player.invulnerable:
@@ -1188,9 +1073,9 @@ class Game:
             
             # Game state screens
             if self.game_over:
-                show_game_over()
+                self.show_game_over()
             elif self.paused:
-                show_pause_screen()
+                self.show_pause_screen()
                 
             # Draw performance monitor if enabled
             if hasattr(self.perf_monitor, 'display_enabled') and self.perf_monitor.display_enabled:
@@ -1251,7 +1136,7 @@ class Game:
                     current_time = pygame.time.get_ticks()
                     if current_time - self.last_enemy_spawn > 1000: # Spawn every 1 second
                         self.last_enemy_spawn = current_time
-                        enemy = spawn_enemy()
+                        enemy = self.spawn_enemy()
                         self.sprite_manager.add_sprite(enemy, 'enemy')
                     
                     # Handle boss spawning
@@ -1333,6 +1218,124 @@ class Game:
                     waiting = False
                 elif event.type == pygame.KEYUP:
                     waiting = False
+
+    def create_explosion(self, center, size="lg"):
+        """
+        Create an explosion animation at the specified position.
+        
+        Args:
+            center (tuple): Center position for the explosion (x, y)
+            size (str): Size of the explosion ("sm", "lg", or "xl")
+        """
+        try:
+            # Determine explosion size in pixels
+            if size == "sm":
+                explosion_size = 20
+            elif size == "lg":
+                explosion_size = 40
+            elif size == "xl":
+                explosion_size = 60
+            else:
+                explosion_size = 30
+            
+            # Create explosion sprite and add to sprite manager
+            explosion = Explosion(center, explosion_size)
+            self.sprite_manager.add_sprite(explosion, 'explosion')
+            
+            # Play explosion sound if available
+            if explosion_sound:
+                explosion_sound.play()
+            
+            log_game_event("Explosion", f"Created {size} explosion at {center}")
+        except Exception as e:
+            log_error(e, "Error creating explosion")
+
+    def draw_health_bar(self, surf, x, y, pct):
+        """
+        Draw a health bar on the screen.
+        
+        Args:
+            surf (Surface): Surface to draw on
+            x (int): X position
+            y (int): Y position
+            pct (float): Percentage of health (0.0 to 1.0)
+        """
+        if pct < 0:
+            pct = 0
+        BAR_LENGTH = 100
+        BAR_HEIGHT = 10
+        fill = pct * BAR_LENGTH
+        outline_rect = pygame.Rect(x, y, BAR_LENGTH, BAR_HEIGHT)
+        fill_rect = pygame.Rect(x, y, fill, BAR_HEIGHT)
+        if pct > 0.6:
+            color = GREEN
+        elif pct > 0.3:
+            color = YELLOW
+        else:
+            color = RED
+        pygame.draw.rect(surf, color, fill_rect)
+        pygame.draw.rect(surf, WHITE, outline_rect, 2)
+
+    def spawn_enemy(self):
+        """
+        Spawn a new enemy based on probability and return it.
+        Handles enemy type selection based on ENEMY_TYPES configuration.
+        
+        Returns:
+            Enemy: A new enemy sprite
+        """
+        enemy_type = random.random()
+        if enemy_type < 0.6:
+            enemy = Enemy()
+        elif enemy_type < 0.8:
+            enemy = FastEnemy()
+        else:
+            enemy = TankEnemy()
+        enemy.speedy *= self.difficulty
+        return enemy
+    
+    def spawn_powerup(self, x, y):
+        """
+        Spawn a random power-up at the given position.
+        
+        Args:
+            x (int): X position
+            y (int): Y position
+            
+        Returns:
+            PowerUp: A new power-up sprite
+        """
+        power_type = random.choice(["health", "power", "shield"])
+        return PowerUp(x, y, power_type)
+
+    def show_game_over(self):
+        """
+        Display the game over screen with final score.
+        """
+        game_over_text = font.render("GAME OVER! Press R to restart", True, WHITE)
+        score_text = font.render(f"Final Score: {self.score}", True, WHITE)
+        high_score_text = font.render(f"High Score: {self.high_score}", True, YELLOW)
+        
+        self.screen.blit(game_over_text, (WINDOW_WIDTH//2 - game_over_text.get_width()//2, WINDOW_HEIGHT//2 - 60))
+        self.screen.blit(score_text, (WINDOW_WIDTH//2 - score_text.get_width()//2, WINDOW_HEIGHT//2))
+        self.screen.blit(high_score_text, (WINDOW_WIDTH//2 - high_score_text.get_width()//2, WINDOW_HEIGHT//2 + 40))
+        
+        credit_text = small_font.render("Press ESC to quit", True, WHITE)
+        self.screen.blit(credit_text, (WINDOW_WIDTH//2 - credit_text.get_width()//2, WINDOW_HEIGHT - 50))
+
+    def show_pause_screen(self):
+        """
+        Display pause screen overlay.
+        """
+        pause_text = font.render("PAUSED", True, WHITE)
+        resume_text = small_font.render("Press P to resume", True, WHITE)
+        
+        overlay = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 150))  # Semi-transparent black
+        self.screen.blit(overlay, (0, 0))
+        
+        self.screen.blit(pause_text, (WINDOW_WIDTH//2 - pause_text.get_width()//2, WINDOW_HEIGHT//2 - 50))
+        self.screen.blit(resume_text, (WINDOW_WIDTH//2 - resume_text.get_width()//2, WINDOW_HEIGHT//2 + 10))
 
 # Replace the global game initialization code with a main function
 def main():
