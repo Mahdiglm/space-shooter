@@ -1,20 +1,22 @@
 # Space Shooter Game
 
-A simple 2D space shooter game built with Python and Pygame. Control your spaceship, shoot enemies, and try to survive as long as possible!
+A challenging 2D space shooter game built with Python and Pygame. Control your spaceship, shoot enemies, collect power-ups, and try to survive as long as possible!
 
 *Last updated: March 27, 2025*
 
 ## Features
 
 - Smooth spaceship controls
-- Enemy ships with random movement patterns
-- Bullet shooting mechanics
-- Collision detection
+- Multiple enemy types with unique behaviors
+- Power-up system with three types of upgrades
+- Progressive difficulty system
+- Boss battles
+- Weapon power levels
+- Health and shield system
+- Scoring system with different point values
 - 60 FPS gameplay
-- Scoring system
-- Health system
 - Game over screen with restart option
-- On-screen display for score and health
+- On-screen display for score, health, and power level
 
 ## Installation
 
@@ -42,15 +44,39 @@ python main.py
 - SPACEBAR: Shoot bullets
 - R: Restart game after game over
 
-3. Objective:
-- Shoot the red enemy ships to score points
+3. Enemy Types:
+- Regular Enemies (Red): Standard enemies
+- Fast Enemies (Blue): Faster but more fragile
+- Tank Enemies (Green): Slower but tougher
+- Boss Enemy (Yellow): Appears at 1000 points
+
+4. Power-ups:
+- Health (Green): Restores 20 health points
+- Power (Blue): Increases weapon power level
+- Shield (Yellow): Temporary invulnerability
+
+5. Weapon Power Levels:
+- Level 1: Single shot
+- Level 2: Double shot
+- Level 3: Triple shot
+
+6. Objective:
+- Shoot enemies to score points
+- Collect power-ups to enhance your abilities
 - Avoid collisions with enemies
 - Try to survive as long as possible
-- Each hit from an enemy reduces your health
-- Game ends when health reaches zero
+- Defeat the boss enemy for bonus points
 
-4. Scoring:
-- Each enemy destroyed: 10 points
+7. Scoring:
+- Regular Enemy: 10 points
+- Fast Enemy: 15 points
+- Tank Enemy: 25 points
+- Boss Enemy: 100 points
+
+8. Difficulty:
+- Game becomes progressively harder over time
+- Enemy speed increases with difficulty
+- Boss appears at 1000 points
 - Try to achieve the highest score possible!
 
 ## Development
