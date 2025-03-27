@@ -1,7 +1,7 @@
 import pygame
 import math
 from collections import defaultdict
-from game_logger import log_performance, log_debug
+from game_logger import log_performance, log_debug, log_info
 
 class SpatialHash:
     """
@@ -232,4 +232,49 @@ class SpriteManager:
             'sprites_processed': self.sprites_processed,
             'collisions_checked': self.collisions_checked,
             'collisions_detected': self.collisions_detected
-        } 
+        }
+    
+    def clear_all_except_player(self):
+        """
+        Remove all sprites except the player.
+        Used when resetting the game.
+        """
+        player = None
+        if self.player_group.sprite:
+            player = self.player_group.sprite
+        
+        # Clear all sprite groups
+        self.all_sprites.empty()
+        self.enemies.empty()
+        self.bullets.empty()
+        self.enemy_bullets.empty()
+        self.powerups.empty()
+        self.explosions.empty()
+        
+        # Keep background sprites if any
+        # Clear and re-add background sprites
+        background_sprites = pygame.sprite.Group()
+        for sprite in self.background_sprites:
+            background_sprites.add(sprite)
+        self.background_sprites.empty()
+        
+        # Reset spatial hash
+        self.spatial_hash.clear()
+        self.visible_sprites.clear()
+        
+        # Add back the player and background sprites
+        if player:
+            self.all_sprites.add(player)
+            self.player_group.add(player)
+        
+        for sprite in background_sprites:
+            self.all_sprites.add(sprite)
+            self.background_sprites.add(sprite)
+        
+        # Log the reset
+        log_info(f"Sprite manager cleared. Remaining sprites: {len(self.all_sprites)}")
+        
+        # Reset performance metrics
+        self.sprites_processed = 0
+        self.collisions_checked = 0
+        self.collisions_detected = 0 

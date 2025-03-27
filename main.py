@@ -8,7 +8,7 @@ from collections import defaultdict
 from game_renderer import GameRenderer
 from performance_monitor import PerformanceMonitor
 from sprite_manager import SpriteManager
-from game_logger import logger, log_error, log_info, log_game_event, log_performance
+from game_logger import logger, log_error, log_info, log_warning, log_game_event, log_performance, log_debug
 from game_exceptions import *
 from game_config import *
 
@@ -849,7 +849,39 @@ class Game:
             self.clock = pygame.time.Clock()
             self.running = True
             self.paused = False
+            self.game_over = False
+            self.score = 0
+            self.high_score = 0
+            self.difficulty = 1.0
+            self.last_enemy_spawn = 0
+            self.last_boss_spawn = 0
+            self.show_fps = False
+            
+            # Initialize player
+            self.player = Player()
+            
+            # Initialize optimization systems
+            self.renderer = GameRenderer(self.screen, BLACK)
+            self.perf_monitor = PerformanceMonitor()
+            self.sprite_manager = SpriteManager(WINDOW_WIDTH, WINDOW_HEIGHT)
+            
+            # Add player to sprite manager
+            self.sprite_manager.add_sprite(self.player, 'player')
+            
+            # Load game assets
             self.load_assets()
+            
+            # Create background stars if no background image
+            if background_img is None:
+                for i in range(50):
+                    star = Star()
+                    self.sprite_manager.add_sprite(star, 'background')
+            
+            # Spawn initial enemies
+            for i in range(6):
+                enemy = spawn_enemy()
+                self.sprite_manager.add_sprite(enemy, 'enemy')
+                
             log_info("Game initialized successfully")
         except pygame.error as e:
             log_error(e, "Failed to initialize pygame")
@@ -865,25 +897,26 @@ class Game:
         """
         try:
             start_time = time.time()
-            # Load images
-            self.background_img = self.load_image('background.jpg')
-            self.player_img = self.load_image('player.png')
-            self.bullet_img = self.load_image('bullet.png')
-            self.enemy_img = self.load_image('enemy.png')
             
-            # Load sounds
-            self.shoot_sound = self.load_sound('shoot.wav')
-            self.explosion_sound = self.load_sound('explosion.wav')
+            log_info("Loading game assets...")
+            
+            # Load background image
+            try:
+                self.background_img = pygame.image.load(os.path.join(IMG_DIR, "background.jpg")).convert()
+                self.background_img = pygame.transform.scale(self.background_img, (WINDOW_WIDTH, WINDOW_HEIGHT))
+                self.renderer.set_background(self.background_img)
+            except (pygame.error, FileNotFoundError):
+                self.background_img = None
+                log_warning("Background image not found. Using black background.")
+            
+            # Add additional asset loading as needed
             
             load_time = time.time() - start_time
             log_performance("Asset Loading", load_time)
             log_info("All assets loaded successfully")
-        except AssetLoadError as e:
-            log_error(e, "Failed to load game assets")
-            raise
         except Exception as e:
-            log_error(e, "Unexpected error loading assets")
-            raise
+            log_error(e, "Failed to load game assets")
+            raise AssetLoadError("Failed to load game assets") from e
 
     def load_image(self, filename):
         """
@@ -931,20 +964,72 @@ class Game:
         Handles key presses and game state changes.
         """
         try:
+            # Start timing input handling
+            self.perf_monitor.start_section("input")
+            
             for event in pygame.event.get():
+                # Quit event
                 if event.type == pygame.QUIT:
                     self.running = False
                     log_info("Game quit by user")
+                
+                # Key down events
                 elif event.type == pygame.KEYDOWN:
+                    # Pause toggle (P key)
                     if event.key == pygame.K_p:
                         self.paused = not self.paused
                         log_game_event("Game State", "Paused" if self.paused else "Unpaused")
+                    
+                    # Performance monitor toggle (M key)
+                    elif event.key == pygame.K_m:
+                        self.perf_monitor.toggle_display()
+                        self.renderer.force_full_redraw()
+                        log_game_event("Display", "Performance monitor toggled")
+                    
+                    # Exit game (ESC key)
                     elif event.key == pygame.K_ESCAPE:
                         self.running = False
                         log_info("Game quit using ESC key")
+                    
+                    # Restart game if game over (R key)
+                    elif event.key == pygame.K_r and self.game_over:
+                        self.reset_game()
+                        log_game_event("Game State", "Game restarted")
+            
+            # End timing input handling
+            self.perf_monitor.end_section("input")
         except Exception as e:
             log_error(e, "Error handling input")
             raise InputError("Failed to process user input") from e
+
+    def reset_game(self):
+        """
+        Reset the game state for a new game.
+        """
+        log_info("Resetting game state")
+        # Reset game state
+        self.score = 0
+        self.game_over = False
+        self.difficulty = 1.0
+        self.boss_spawned = False
+        
+        # Clear all sprites except player
+        self.sprite_manager.clear_all_except_player()
+        
+        # Reset player
+        self.player.rect.centerx = WINDOW_WIDTH // 2
+        self.player.rect.bottom = WINDOW_HEIGHT - 10
+        self.player.health = self.player.max_health
+        self.player.power_level = 1
+        self.player.invulnerable = False
+        
+        # Create initial enemies
+        for i in range(6):
+            enemy = spawn_enemy()
+            self.sprite_manager.add_sprite(enemy, 'enemy')
+        
+        # Force full redraw
+        self.renderer.force_full_redraw()
 
     def update(self):
         """
@@ -1059,15 +1144,65 @@ class Game:
         Implements dirty rectangle rendering for optimized performance.
         """
         try:
+            # Start timing for performance measurement
             start_time = time.time()
             
-            self.screen.fill((0, 0, 0))
-            self.screen.blit(self.background_img, (0, 0))
+            # Start timing rendering operation
+            self.perf_monitor.start_section("render")
             
-            self.all_sprites.draw(self.screen)
-            self.draw_ui()
+            # Set background
+            if background_img:
+                self.renderer.set_background(background_img)
+            else:
+                self.renderer.set_background()
             
-            pygame.display.flip()
+            # Clear previous sprite positions to create dirty rectangles
+            self.renderer.clear(self.sprite_manager.get_all_groups())
+            
+            # Draw all sprites 
+            dirty_rects = self.renderer.draw(self.sprite_manager.get_all_groups())
+            
+            # Draw UI elements
+            # Score
+            score_text = font.render(f"Score: {self.score}", True, WHITE)
+            self.screen.blit(score_text, (10, 10))
+            
+            # High score
+            high_score_text = small_font.render(f"High Score: {self.high_score}", True, WHITE)
+            self.screen.blit(high_score_text, (10, 50))
+            
+            # Draw health bar
+            draw_health_bar(self.screen, 10, 80, self.player.health / self.player.max_health)
+            
+            # Shield timer if active
+            if self.player.invulnerable:
+                shield_pct = (pygame.time.get_ticks() - self.player.invulnerable_timer) / self.player.invulnerable_duration
+                shield_text = small_font.render(f"Shield: {(1-shield_pct)*100:.0f}%", True, YELLOW)
+                self.screen.blit(shield_text, (WINDOW_WIDTH - 150, 10))
+            
+            # FPS counter if enabled
+            if self.show_fps:
+                fps = self.perf_monitor.get_fps()
+                fps_text = small_font.render(f"FPS: {fps:.1f}", True, GREEN)
+                self.screen.blit(fps_text, (WINDOW_WIDTH - 100, 50))
+            
+            # Game state screens
+            if self.game_over:
+                show_game_over()
+            elif self.paused:
+                show_pause_screen()
+                
+            # Draw performance monitor if enabled
+            if hasattr(self.perf_monitor, 'display_enabled') and self.perf_monitor.display_enabled:
+                metrics_rect = self.perf_monitor.draw(self.screen)
+                if metrics_rect:
+                    dirty_rects.append(metrics_rect)
+            
+            # Update only the necessary parts of the screen (dirty rectangles)
+            self.renderer.update_display(dirty_rects)
+            
+            # End timing rendering operation
+            self.perf_monitor.end_section("render")
             
             render_time = time.time() - start_time
             log_performance("Game Render", render_time)
@@ -1082,11 +1217,55 @@ class Game:
         """
         try:
             log_info("Starting game loop")
+            
+            # Play background music if available
+            try:
+                pygame.mixer.music.play(loops=-1)
+            except:
+                log_warning("Could not play background music")
+            
+            # Main game loop
             while self.running:
+                # Start timing the frame
+                self.perf_monitor.start_frame()
+                
+                # Cap the frame rate
                 self.clock.tick(60)
+                
+                # Handle input
                 self.handle_input()
-                self.update()
+                
+                # Skip updates if paused or game over
+                if not self.paused and not self.game_over:
+                    # Update game state
+                    self.update()
+                    
+                    # Handle player shooting
+                    keys = pygame.key.get_pressed()
+                    if keys[pygame.K_SPACE]:
+                        new_bullets = self.player.shoot()
+                        for bullet in new_bullets:
+                            self.sprite_manager.add_sprite(bullet, 'bullet')
+                    
+                    # Spawn enemies based on time
+                    current_time = pygame.time.get_ticks()
+                    if current_time - self.last_enemy_spawn > 1000: # Spawn every 1 second
+                        self.last_enemy_spawn = current_time
+                        enemy = spawn_enemy()
+                        self.sprite_manager.add_sprite(enemy, 'enemy')
+                    
+                    # Handle boss spawning
+                    if not self.boss_spawned and self.score >= BOSS_SPAWN_SCORE:
+                        boss = BossEnemy()
+                        self.sprite_manager.add_sprite(boss, 'enemy')
+                        self.boss_spawned = True
+                        log_game_event("Boss", "Boss enemy spawned")
+                
+                # Render the game
                 self.render()
+                
+                # End timing the frame
+                self.perf_monitor.end_frame()
             
             log_info("Game loop ended normally")
         except GameError as e:
@@ -1155,5 +1334,27 @@ class Game:
                 elif event.type == pygame.KEYUP:
                     waiting = False
 
-game = Game()
-game.run()
+# Replace the global game initialization code with a main function
+def main():
+    """
+    Main function that initializes and runs the game.
+    """
+    try:
+        # Initialize the game
+        log_info("Initializing Space Shooter game...")
+        game = Game()
+        
+        # Run the game
+        game.run()
+        
+        # Clean exit
+        log_info("Game exited cleanly")
+        return 0
+    except Exception as e:
+        log_error(e, "Unhandled exception in main")
+        pygame.quit()
+        return 1
+
+# Run the game if this script is executed directly
+if __name__ == "__main__":
+    sys.exit(main())

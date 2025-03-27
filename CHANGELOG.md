@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Release Descriptions
 
+### Version 0.3.8 (Beta)
+A stability-focused release that fixes critical bugs and improves the robustness of the game. This version addresses initialization issues, properly implements the performance-optimized systems, and ensures smooth gameplay under various conditions.
+
 ### Version 0.3.7 (Beta)
 A documentation-focused release that significantly improves the project's technical documentation and code readability. This version introduces comprehensive documentation files, enhances inline code comments, and provides a detailed roadmap for future development.
 
@@ -39,6 +42,34 @@ A bug-fix and improvement release that adds essential game features like scoring
 
 ### Version 0.1.0 (Pre-Alpha)
 The initial release of the Space Shooter game, establishing the basic game mechanics and structure. This version provides the foundation for all future development.
+
+## [0.3.8] - 2025-03-28
+
+### Added
+- Added proper initialization of the Game class with all required components
+- Added explicit import for log_warning in main.py
+- Added reset_game method for properly restarting the game
+- Added clear_all_except_player method to SpriteManager for game reset
+- Added performance monitoring integration throughout the game loop
+- Added more detailed error handling with appropriate exception types
+
+### Changed
+- Improved asset loading with better error handling
+- Enhanced Game.render method to properly use the GameRenderer
+- Improved input handling with specific key actions
+- Enhanced game loop with proper frame timing and state management
+- Better performance monitoring with section timing
+- Improved background image handling with proper fallbacks
+
+### Fixed
+- Fixed missing log_warning import causing NameError
+- Fixed uninitialized sprite_manager in Game class
+- Fixed missing start_time variable in render method
+- Fixed background rendering issues
+- Fixed performance monitoring display toggle
+- Fixed game reset functionality
+- Fixed asset loading error handling
+- Fixed incorrect method calls and variable references
 
 ## [0.3.7] - 2025-03-27
 

@@ -28,3 +28,58 @@ Traceback (most recent call last):
   File "c:\Users\MXDI\Desktop\mineser\main.py", line 787, in load_sound
     log_warning(f"Could not load sound: {filename}")
 NameError: name 'log_warning' is not defined
+2025-03-27 22:03:59,173 - ERROR - game_logger - log_error - Unexpected error loading assets - name 'log_warning' is not defined
+Traceback (most recent call last):
+  File "C:\Users\MXDI\Desktop\mineser\main.py", line 920, in load_sound
+    return pygame.mixer.Sound(filepath)
+pygame.error: Unrecognized audio format
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\MXDI\Desktop\mineser\main.py", line 875, in load_assets
+    self.shoot_sound = self.load_sound('shoot.wav')
+  File "C:\Users\MXDI\Desktop\mineser\main.py", line 922, in load_sound
+    log_warning(f"Could not load sound: {filename}")
+NameError: name 'log_warning' is not defined
+2025-03-27 22:03:59,174 - ERROR - game_logger - log_error - Unexpected error during game initialization - name 'log_warning' is not defined
+Traceback (most recent call last):
+  File "C:\Users\MXDI\Desktop\mineser\main.py", line 920, in load_sound
+    return pygame.mixer.Sound(filepath)
+pygame.error: Unrecognized audio format
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\MXDI\Desktop\mineser\main.py", line 852, in __init__
+    self.load_assets()
+  File "C:\Users\MXDI\Desktop\mineser\main.py", line 875, in load_assets
+    self.shoot_sound = self.load_sound('shoot.wav')
+  File "C:\Users\MXDI\Desktop\mineser\main.py", line 922, in load_sound
+    log_warning(f"Could not load sound: {filename}")
+NameError: name 'log_warning' is not defined
+2025-03-27 22:04:23,923 - WARNING - game_logger - log_warning - Could not load sound: shoot.wav
+2025-03-27 22:04:23,928 - DEBUG - game_logger - log_performance - Performance - Asset Loading: 0.0080s
+2025-03-27 22:04:23,928 - INFO - game_logger - log_info - All assets loaded successfully
+2025-03-27 22:04:23,928 - INFO - game_logger - log_info - Game initialized successfully
+2025-03-27 22:04:23,929 - INFO - game_logger - log_info - Starting game loop
+2025-03-27 22:04:23,936 - ERROR - game_logger - log_error - Error updating game state - 'Game' object has no attribute 'score'
+Traceback (most recent call last):
+  File "C:\Users\MXDI\Desktop\mineser\main.py", line 961, in update
+    1.0 + (self.score / 1000) * GAME_BALANCE['difficulty_increase_rate']
+AttributeError: 'Game' object has no attribute 'score'
+2025-03-27 22:04:23,936 - ERROR - game_logger - log_error - Game error occurred - Failed to update game state
+Traceback (most recent call last):
+  File "C:\Users\MXDI\Desktop\mineser\main.py", line 961, in update
+    1.0 + (self.score / 1000) * GAME_BALANCE['difficulty_increase_rate']
+AttributeError: 'Game' object has no attribute 'score'
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\MXDI\Desktop\mineser\main.py", line 1088, in run
+    self.update()
+  File "C:\Users\MXDI\Desktop\mineser\main.py", line 975, in update
+    raise GameStateError("Failed to update game state") from e
+game_exceptions.GameStateError: Failed to update game state
+2025-03-27 22:04:31,176 - INFO - game_logger - log_info - Game cleaned up successfully
