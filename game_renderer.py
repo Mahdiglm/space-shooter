@@ -1,173 +1,353 @@
 import pygame
 import time
-from game_logger import log_performance, log_debug
+from pygame.locals import *
+from game_logger import log_info, log_performance, log_debug
 
 class GameRenderer:
     """
-    Optimized renderer for the Space Shooter game.
-    Implements dirty rectangle rendering to minimize GPU operations.
+    Handles efficient rendering of game elements using dirty rectangle technique
+    with optimizations for improved performance.
     """
-    def __init__(self, screen, background_color=(0, 0, 0)):
-        self.screen = screen
-        self.screen_rect = self.screen.get_rect()
+    def __init__(self, screen_width, screen_height, background_color=(0, 0, 0), performance_monitor=None):
+        self.screen = pygame.display.set_mode((screen_width, screen_height))
+        self.screen_width = screen_width
+        self.screen_height = screen_height
         self.background_color = background_color
-        self.background_image = None
-        
-        # Initialize dirty rectangles tracking
         self.dirty_rects = []
-        self.previous_sprite_rects = {}
-        self.full_redraw_needed = True
+        self.background = None
+        self.performance_monitor = performance_monitor
         
-        # Performance tracking
-        self.frame_count = 0
-        self.render_time = 0
-        self.last_performance_log = time.time()
+        # Rendering cache for frequently used images
+        self.image_cache = {}
         
-        # Create background surface for partial redraw
-        self.background_surface = pygame.Surface((self.screen_rect.width, self.screen_rect.height))
-        self.background_surface.fill(self.background_color)
+        # Sprite groups for better organization and culling
+        self.all_sprites = pygame.sprite.Group()
+        self.visible_sprites = pygame.sprite.Group()
         
-        # Default font for performance metrics
-        self.debug_font = pygame.font.Font(None, 24)
-        self.show_metrics = False
+        # Performance optimization flags
+        self.last_update_time = time.time()
+        self.report_interval = 5.0  # seconds
+        self.total_render_time = 0
+        self.render_count = 0
+        self.rect_count = 0
+        
+        # Batching optimization
+        self.max_batch_size = 100
+        self.allow_skipping = True
+        self.skip_threshold = 1/120  # Skip if behind by 8.33ms (120fps target)
+        
+        # Surface caching
+        self.text_surfaces = {}
+        self.effect_surfaces = {}
+        
+        # Debug flags
+        self.show_dirty_rects = False
+        self.show_performance = False
+        
+        # Last full redraw time
+        self.last_full_redraw = 0
+        self.force_full_redraw_interval = 10.0  # Increase to 10 seconds to reduce blinking
+        self.last_frame_count = 0  # Track last frame count for smoother redraw timing
+        
+        # Initialize background buffer
+        self.background_buffer = pygame.Surface((screen_width, screen_height))
+        self.background_buffer.fill(background_color)
+        
+        log_info("GameRenderer initialized with resolution {}x{}".format(screen_width, screen_height))
 
-    def set_background(self, image=None):
-        """Set background image or color."""
-        if image:
-            self.background_image = image
-            # Scale the background image to fit the screen
-            self.background_image = pygame.transform.scale(
-                self.background_image, 
-                (self.screen_rect.width, self.screen_rect.height)
-            )
-            self.background_surface.blit(self.background_image, (0, 0))
-        else:
-            self.background_image = None
-            self.background_surface.fill(self.background_color)
+    def set_background_image(self, surface):
+        """Set the background directly from an already loaded surface."""
+        if surface:
+            self.background = surface
+            # Update background buffer with provided surface
+            self.background_buffer.blit(self.background, (0, 0))
+            
+            # Force a full redraw when background changes
+            self.force_full_redraw()
+            return True
+        return False
         
-        # Full redraw needed after background change
-        self.full_redraw_needed = True
+    def add_to_cache(self, key, image):
+        """Add an image to the rendering cache."""
+        if image and key not in self.image_cache:
+            self.image_cache[key] = image
+            return True
+        return False
 
-    def clear(self, sprite_groups):
-        """
-        Clear previous sprite positions by tracking their rectangles.
-        This creates "dirty rectangles" that need to be redrawn.
-        """
-        # Track rectangles for all sprites
-        for group in sprite_groups:
-            for sprite in group:
-                sprite_id = id(sprite)
-                # If sprite existed in previous frame, mark its previous position as dirty
-                if sprite_id in self.previous_sprite_rects:
-                    prev_rect = self.previous_sprite_rects[sprite_id]
-                    self.dirty_rects.append(prev_rect)
+    def set_background(self, image_path=None):
+        """Set the background image or color."""
+        if image_path:
+            try:
+                # Cache the background to avoid reloading
+                if image_path in self.image_cache:
+                    self.background = self.image_cache[image_path]
+                else:
+                    self.background = pygame.image.load(image_path).convert()
+                    self.background = pygame.transform.scale(self.background, 
+                                                           (self.screen_width, self.screen_height))
+                    self.image_cache[image_path] = self.background
                 
-                # Store current position for next frame
-                self.previous_sprite_rects[sprite_id] = sprite.rect.copy()
+                # Update background buffer
+                self.background_buffer.blit(self.background, (0, 0))
+            except Exception as e:
+                log_debug(f"Failed to load background: {e}")
+                self.background = None
+                self.background_buffer.fill(self.background_color)
+        else:
+            self.background = None
+            self.background_buffer.fill(self.background_color)
+            
+        # Force a full redraw when background changes
+        self.force_full_redraw()
 
-        # Remove rectangles for sprites that no longer exist
-        current_sprite_ids = set()
-        for group in sprite_groups:
-            for sprite in group:
-                current_sprite_ids.add(id(sprite))
-        
-        removed_sprites = set(self.previous_sprite_rects.keys()) - current_sprite_ids
-        for sprite_id in removed_sprites:
-            rect = self.previous_sprite_rects.pop(sprite_id)
-            self.dirty_rects.append(rect)
+    def clear_previous(self, sprites):
+        """Clear previous sprite positions by restoring background."""
+        for sprite in sprites:
+            if hasattr(sprite, 'prev_rect') and sprite.prev_rect:
+                # Only add to dirty rects if actually different (optimization)
+                if sprite.prev_rect.width > 0 and sprite.prev_rect.height > 0:
+                    # Add a small padding to ensure complete clearing
+                    padded_rect = sprite.prev_rect.inflate(4, 4)
+                    # Copy from background buffer to screen
+                    self.screen.blit(self.background_buffer, padded_rect, padded_rect)
+                    self.dirty_rects.append(padded_rect)
 
-    def draw(self, sprite_groups):
-        """
-        Draw sprites efficiently using dirty rectangle rendering.
-        Only redraws parts of the screen that have changed.
-        """
+    def draw_sprites(self, sprites):
+        """Draw sprites efficiently using dirty rectangle technique."""
+        # Performance monitoring
+        if self.performance_monitor:
+            self.performance_monitor.start_section("render")
+            
         start_time = time.time()
         
-        # If full redraw is needed, do it
-        if self.full_redraw_needed:
-            if self.background_image:
-                self.screen.blit(self.background_image, (0, 0))
-            else:
-                self.screen.fill(self.background_color)
-            
-            # Draw all sprites
-            for group in sprite_groups:
-                dirty_rects = group.draw(self.screen)
-                self.dirty_rects.extend(dirty_rects)
-            
-            # Reset flag
-            self.full_redraw_needed = False
-        else:
-            # Redraw background only in dirty areas
-            for rect in self.dirty_rects:
-                if self.background_image:
-                    area = rect.clip(self.screen_rect)
-                    self.screen.blit(self.background_surface, area, area)
-                else:
-                    self.screen.fill(self.background_color, rect)
-            
-            # Draw sprites and collect their areas as new dirty rects
-            new_dirty_rects = []
-            for group in sprite_groups:
-                # Draw the group and collect the updated areas
-                updated_rects = group.draw(self.screen)
-                new_dirty_rects.extend(updated_rects)
-            
-            # Replace old dirty rects with new ones
-            self.dirty_rects = new_dirty_rects
-        
-        # Update performance metrics
-        render_duration = time.time() - start_time
-        self.render_time += render_duration
-        self.frame_count += 1
-        
-        # Log performance metrics every 5 seconds
+        # Check if we need a full redraw - use time-based or distance-based checks
         current_time = time.time()
-        if current_time - self.last_performance_log >= 5.0:
-            avg_render_time = self.render_time / max(1, self.frame_count)
-            log_performance("Rendering", avg_render_time)
-            log_debug(f"Dirty rectangles: {len(self.dirty_rects)}")
+        force_full = (current_time - self.last_full_redraw) > self.force_full_redraw_interval
+        
+        # Only do frame-based redraw check if we haven't done a time-based full redraw recently
+        # This prevents double-redraw blinking effect
+        frame_based_redraw = False
+        if self.performance_monitor and not force_full:
+            # Only do a frame-based redraw every 300 frames (about 5 seconds at 60fps)
+            # And make sure at least 2 seconds have passed since last full redraw
+            current_frame = self.performance_monitor.frame_count
+            frames_passed = current_frame - self.last_frame_count
+            time_since_last = current_time - self.last_full_redraw
             
-            # Reset metrics
-            self.render_time = 0
-            self.frame_count = 0
-            self.last_performance_log = current_time
+            if frames_passed >= 300 and time_since_last >= 2.0:
+                frame_based_redraw = True
+                self.last_frame_count = current_frame
+                log_debug("Frame-based full redraw")
         
-        # Draw performance metrics if enabled
-        if self.show_metrics:
-            self._draw_performance_metrics(render_duration)
+        # Force full redraw when needed, less frequently to prevent blinking
+        if force_full or frame_based_redraw:
+            # Complete redraw - blit background and update all
+            self.screen.blit(self.background_buffer, (0, 0))
+            self.dirty_rects = [pygame.Rect(0, 0, self.screen_width, self.screen_height)]
+            self.last_full_redraw = current_time
+            if force_full:
+                log_debug("Time-based full screen redraw")
+        else:
+            # Partial redraw - just update dirty areas
+            self.clear_previous(sprites)
         
-        return self.dirty_rects
+        # Cull sprites outside viewport (optimization)
+        visible_sprites = []
+        screen_rect = pygame.Rect(0, 0, self.screen_width, self.screen_height)
+        
+        # Batch processing of sprites for better performance
+        batch_counter = 0
+        batch_limit = min(len(sprites), self.max_batch_size)
+        
+        for sprite in sprites:
+            # Skip offscreen sprites (culling)
+            if not hasattr(sprite, 'rect') or not sprite.rect:
+                continue
+                
+            # Skip if too far outside viewport
+            if sprite.rect.right < -50 or sprite.rect.left > self.screen_width + 50 or \
+               sprite.rect.bottom < -50 or sprite.rect.top > self.screen_height + 50:
+                continue
+                
+            # Skip invisible sprites
+            if hasattr(sprite, 'visible') and not sprite.visible:
+                continue
+                
+            # Check if we should skip this frame for performance
+            if self.allow_skipping and batch_counter > batch_limit:
+                current_render_time = time.time() - start_time
+                if current_render_time > self.skip_threshold:
+                    log_debug(f"Skipping remaining sprites ({len(sprites) - batch_counter}) for performance")
+                    break
+                    
+            batch_counter += 1
+                
+            # Store previous position for next frame's cleanup
+            if not hasattr(sprite, 'prev_rect') or sprite.prev_rect is None:
+                sprite.prev_rect = pygame.Rect(sprite.rect)
+            else:
+                sprite.prev_rect.x = sprite.rect.x
+                sprite.prev_rect.y = sprite.rect.y
+                sprite.prev_rect.width = sprite.rect.width
+                sprite.prev_rect.height = sprite.rect.height
+                
+            # Only draw if visible (intersects with screen)
+            if sprite.rect.colliderect(screen_rect):
+                # Draw the sprite
+                if hasattr(sprite, 'image') and sprite.image is not None:
+                    self.screen.blit(sprite.image, sprite.rect)
+                    # Add to dirty rectangles for updating - with a small padding
+                    padded_rect = pygame.Rect(sprite.rect).inflate(2, 2)
+                    self.dirty_rects.append(padded_rect)
+                    visible_sprites.append(sprite)
 
-    def _draw_performance_metrics(self, render_time):
-        """Draw performance metrics on screen for debugging."""
-        metrics = [
-            f"FPS: {int(1.0 / max(0.001, render_time))}",
-            f"Render: {render_time * 1000:.1f}ms",
-            f"Dirty: {len(self.dirty_rects)}"
-        ]
+        # Update only the dirty portions of the screen
+        if self.dirty_rects:
+            # Merge overlapping rectangles to reduce update calls
+            optimized_rects = self._optimize_rects(self.dirty_rects)
+            pygame.display.update(optimized_rects)
+            self.rect_count += len(optimized_rects)
+            
+            # Visualize dirty rects if debug enabled
+            if self.show_dirty_rects:
+                for rect in optimized_rects:
+                    pygame.draw.rect(self.screen, (255, 0, 0), rect, 1)
+                pygame.display.update(optimized_rects)
+                
+        # Performance tracking
+        end_time = time.time()
+        render_time = end_time - start_time
+        self.total_render_time += render_time
+        self.render_count += 1
         
-        y = 10
-        for text in metrics:
-            text_surface = self.debug_font.render(text, True, (255, 255, 0))
-            text_rect = text_surface.get_rect(topleft=(10, y))
-            self.screen.blit(text_surface, text_rect)
-            y += 25
-            # Add text rectangles to dirty areas
-            self.dirty_rects.append(text_rect)
+        # End performance monitoring
+        if self.performance_monitor:
+            self.performance_monitor.end_section("render")
+            
+        # Report metrics periodically
+        current_time = time.time()
+        if current_time - self.last_update_time >= self.report_interval:
+            avg_render_time = self.total_render_time / max(1, self.render_count)
+            avg_rects = self.rect_count / max(1, self.render_count)
+            log_performance("Render time", avg_render_time)
+            log_performance("Dirty rects/frame", avg_rects)
+            
+            # Reset counters
+            self.total_render_time = 0
+            self.render_count = 0
+            self.rect_count = 0
+            self.last_update_time = current_time
+            
+        # Clear dirty rects for next frame
+        self.dirty_rects = []
+        
+        return visible_sprites
 
-    def toggle_metrics_display(self):
-        """Toggle display of performance metrics."""
-        self.show_metrics = not self.show_metrics
-        self.full_redraw_needed = True
+    def _optimize_rects(self, rects):
+        """Optimize dirty rectangles by merging overlapping ones."""
+        if not rects:
+            return []
+            
+        if len(rects) <= 1:
+            return rects
+            
+        # Sort rects by area for better merging
+        sorted_rects = sorted(rects, key=lambda r: r.width * r.height)
+        
+        # If too many small rects, consider a full screen update
+        if len(sorted_rects) > 20:
+            total_area = sum(r.width * r.height for r in sorted_rects)
+            screen_area = self.screen_width * self.screen_height
+            if total_area > 0.5 * screen_area:  # If dirty area > 50% of screen
+                return [pygame.Rect(0, 0, self.screen_width, self.screen_height)]
+        
+        # Simple implementation: merge overlapping rects
+        result = []
+        while sorted_rects:
+            rect = sorted_rects.pop(0)
+            
+            # Check for intersections with existing rects
+            merged = False
+            for i, existing in enumerate(result):
+                if rect.colliderect(existing):
+                    # Merge the rects
+                    result[i] = existing.union(rect)
+                    merged = True
+                    break
+                    
+            if not merged:
+                result.append(rect)
+                
+        # Repeat until no more merges can be done (limit iterations for performance)
+        if len(result) < len(rects) and len(result) > 1:
+            # One more pass should be sufficient
+            result = self._optimize_rects(result)
+            
+        return result
+
+    def draw_text(self, text, x, y, color=(255, 255, 255), font=None, centered=False):
+        """Draw text efficiently with caching."""
+        if font is None:
+            font = pygame.font.Font(None, 36)
+            
+        # Create cache key
+        cache_key = f"{text}_{color}_{font.get_height()}"
+        
+        # Check if we have it cached
+        if cache_key in self.text_surfaces:
+            text_surface = self.text_surfaces[cache_key]
+        else:
+            text_surface = font.render(text, True, color)
+            # Cache the surface
+            self.text_surfaces[cache_key] = text_surface
+            
+            # Limit cache size
+            if len(self.text_surfaces) > 100:
+                # Remove oldest item (first key)
+                self.text_surfaces.pop(next(iter(self.text_surfaces)))
+        
+        text_rect = text_surface.get_rect()
+        if centered:
+            text_rect.center = (x, y)
+        else:
+            text_rect.topleft = (x, y)
+            
+        # Clear previous position if text changed
+        if hasattr(self, f'prev_text_rect_{cache_key}') and getattr(self, f'prev_text_rect_{cache_key}'):
+            prev_rect = getattr(self, f'prev_text_rect_{cache_key}')
+            # Add padding to ensure complete clearing
+            prev_rect_padded = prev_rect.inflate(6, 6)
+            self.screen.blit(self.background_buffer, prev_rect_padded, prev_rect_padded)
+            self.dirty_rects.append(prev_rect_padded)
+        
+        # Draw text
+        self.screen.blit(text_surface, text_rect)
+        # Add padding to text rect to ensure complete update
+        padded_text_rect = text_rect.inflate(6, 6)
+        self.dirty_rects.append(padded_text_rect)
+        
+        # Store rect for next frame with unique key for different text positions
+        setattr(self, f'prev_text_rect_{cache_key}', text_rect.copy())
+        
+        return text_rect
 
     def force_full_redraw(self):
-        """Force a full screen redraw on next frame."""
-        self.full_redraw_needed = True
+        """Force a complete redraw of the screen."""
+        self.dirty_rects = [pygame.Rect(0, 0, self.screen_width, self.screen_height)]
+        self.screen.blit(self.background_buffer, (0, 0))
+        pygame.display.flip()
+        self.last_full_redraw = time.time()
+
+    def toggle_performance_display(self):
+        """Toggle display of performance metrics."""
+        self.show_performance = not self.show_performance
+        return self.show_performance
         
-    def update_display(self, areas=None):
-        """Update only the necessary parts of the screen."""
-        if areas:
-            pygame.display.update(areas)
-        else:
-            pygame.display.flip() 
+    def toggle_dirty_rects_display(self):
+        """Toggle display of dirty rectangles for debugging."""
+        self.show_dirty_rects = not self.show_dirty_rects
+        return self.show_dirty_rects
+        
+    def get_screen(self):
+        """Get the screen surface."""
+        return self.screen 

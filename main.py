@@ -8,9 +8,11 @@ from collections import defaultdict
 from game_renderer import GameRenderer
 from performance_monitor import PerformanceMonitor
 from sprite_manager import SpriteManager
+from collision_system import CollisionSystem
 from game_logger import logger, log_error, log_info, log_warning, log_game_event, log_performance, log_debug
 from game_exceptions import *
 from game_config import *
+from version import VERSION, VERSION_NAME
 
 # Initialize Pygame
 pygame.init()
@@ -718,9 +720,12 @@ class Game:
         try:
             pygame.init()
             pygame.mixer.init()
-            self.screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
-            pygame.display.set_caption("Space Shooter")
-            self.clock = pygame.time.Clock()
+            
+            # Initialize performance monitoring first
+            self.perf_monitor = PerformanceMonitor(sample_size=120)
+            self.perf_monitor.terminal_reporting_enabled = True  # Enable terminal FPS reporting
+            
+            # Game state initialization
             self.running = True
             self.paused = False
             self.game_over = False
@@ -729,19 +734,28 @@ class Game:
             self.difficulty = 1.0
             self.last_enemy_spawn = 0
             self.last_boss_spawn = 0
-            self.show_fps = False
-            self.boss_spawned = False  # Initialize boss_spawned flag
+            self.show_fps = True  # Show FPS by default
+            self.boss_spawned = False
+            
+            # Screen dimensions
+            self.screen_width = WINDOW_WIDTH
+            self.screen_height = WINDOW_HEIGHT
+            
+            # Initialize game systems with optimizations
+            self.renderer = GameRenderer(WINDOW_WIDTH, WINDOW_HEIGHT, BLACK, self.perf_monitor)
+            self.collision_system = CollisionSystem(WINDOW_WIDTH, WINDOW_HEIGHT, 75, self.perf_monitor)
+            self.sprite_manager = SpriteManager(WINDOW_WIDTH, WINDOW_HEIGHT)
+            self.clock = pygame.time.Clock()
+            self.screen = self.renderer.get_screen()
             
             # Initialize player
             self.player = Player()
             
-            # Initialize optimization systems
-            self.renderer = GameRenderer(self.screen, BLACK)
-            self.perf_monitor = PerformanceMonitor()
-            self.sprite_manager = SpriteManager(WINDOW_WIDTH, WINDOW_HEIGHT)
-            
             # Add player to sprite manager
             self.sprite_manager.add_sprite(self.player, 'player')
+            
+            # Register player as a special entity (always checked for collisions)
+            self.collision_system.register_static_object(self.player)
             
             # Load game assets
             self.load_assets()
@@ -771,23 +785,30 @@ class Game:
         Handles fallbacks for missing assets.
         """
         try:
+            self.perf_monitor.start_section("loading")
             start_time = time.time()
             
             log_info("Loading game assets...")
             
             # Load background image
-            try:
-                self.background_img = pygame.image.load(os.path.join(IMG_DIR, "background.jpg")).convert()
-                self.background_img = pygame.transform.scale(self.background_img, (WINDOW_WIDTH, WINDOW_HEIGHT))
-                self.renderer.set_background(self.background_img)
-            except (pygame.error, FileNotFoundError):
-                self.background_img = None
+            if background_img:
+                # Set background directly using background_img since it's already loaded
+                self.renderer.set_background_image(background_img)
+            else:
+                # Just set a background color if no image
                 log_warning("Background image not found. Using black background.")
             
-            # Add additional asset loading as needed
+            # Cache commonly used game images
+            if player_img:
+                self.renderer.add_to_cache("player", player_img)
+            if enemy_img:
+                self.renderer.add_to_cache("enemy", enemy_img)
+            if bullet_img:
+                self.renderer.add_to_cache("bullet", bullet_img)
             
             load_time = time.time() - start_time
             log_performance("Asset Loading", load_time)
+            self.perf_monitor.end_section("loading")
             log_info("All assets loaded successfully")
         except Exception as e:
             log_error(e, "Failed to load game assets")
@@ -860,6 +881,35 @@ class Game:
                         self.perf_monitor.toggle_display()
                         self.renderer.force_full_redraw()
                         log_game_event("Display", "Performance monitor toggled")
+
+                    # Toggle FPS display (F key)
+                    elif event.key == pygame.K_f:
+                        self.show_fps = not self.show_fps
+                        log_game_event("Display", f"FPS display {'enabled' if self.show_fps else 'disabled'}")
+                        
+                    # Toggle terminal FPS reporting (T key)
+                    elif event.key == pygame.K_t:
+                        enabled = self.perf_monitor.toggle_terminal_reporting()
+                        log_game_event("Display", f"Terminal FPS reporting {'enabled' if enabled else 'disabled'}")
+                    
+                    # Toggle debug visualization (D key)
+                    elif event.key == pygame.K_d:
+                        if not hasattr(self, 'debug_mode'):
+                            self.debug_mode = True
+                        else:
+                            self.debug_mode = not self.debug_mode
+                        self.collision_system.toggle_debug()
+                        log_game_event("Display", f"Debug visualization {'enabled' if self.debug_mode else 'disabled'}")
+                        
+                    # Toggle dirty rectangles visualization (R key)
+                    elif event.key == pygame.K_r and not self.game_over:
+                        self.renderer.toggle_dirty_rects_display()
+                        log_game_event("Display", "Dirty rectangles visualization toggled")
+                    
+                    # Force full redraw of screen (C key)
+                    elif event.key == pygame.K_c:
+                        self.renderer.force_full_redraw()
+                        log_game_event("Renderer", "Forced full redraw")
                     
                     # Exit game (ESC key)
                     elif event.key == pygame.K_ESCAPE:
@@ -876,7 +926,7 @@ class Game:
         except Exception as e:
             log_error(e, "Error handling input")
             raise InputError("Failed to process user input") from e
-
+            
     def reset_game(self):
         """
         Reset the game state for a new game.
@@ -888,6 +938,10 @@ class Game:
         self.difficulty = 1.0
         self.boss_spawned = False
         
+        # Clear collision system
+        self.collision_system.clear()
+        self.collision_system.cached_cells.clear()
+        
         # Clear all sprites except player
         self.sprite_manager.clear_all_except_player()
         
@@ -897,6 +951,9 @@ class Game:
         self.player.health = self.player.max_health
         self.player.power_level = 1
         self.player.invulnerable = False
+        
+        # Register player again
+        self.collision_system.register_static_object(self.player)
         
         # Create initial enemies
         for i in range(6):
@@ -913,6 +970,7 @@ class Game:
         """
         try:
             if not self.paused:
+                self.perf_monitor.start_section("update")
                 start_time = time.time()
                 
                 # Update game difficulty
@@ -921,15 +979,43 @@ class Game:
                     1.0 + (self.score / 1000) * GAME_BALANCE['difficulty_increase_rate']
                 )
                 
-                # Update all sprites through the sprite manager
-                # This is optimized to only update sprites that are visible on screen
-                self.sprite_manager.update_sprites()
+                # Clear the collision system for new frame
+                self.collision_system.clear()
                 
-                # Check collisions
+                # Update all sprites
+                all_sprites = self.sprite_manager.get_all_sprites()
+                for sprite in all_sprites:
+                    sprite.update()
+                
+                # Update collision system with current sprite positions
+                for sprite in self.sprite_manager.bullets:
+                    self.collision_system.add_object(sprite, 'bullet')
+                
+                for sprite in self.sprite_manager.enemies:
+                    self.collision_system.add_object(sprite, 'enemy')
+                
+                for sprite in self.sprite_manager.powerups:
+                    self.collision_system.add_object(sprite, 'powerup')
+                    
+                for sprite in self.sprite_manager.enemy_bullets:
+                    self.collision_system.add_object(sprite, 'enemy_bullet')
+                
+                # Always add player
+                self.collision_system.add_object(self.player, 'player')
+                
+                # Run collision detection using optimized system
                 self.check_collisions()
+                
+                # Periodic cleanup of collision system cache
+                self.collision_system.cleanup_cached_data()
+                
+                # Every 1000 frames, try to optimize collision grid
+                if self.perf_monitor.frame_count % 1000 == 0:
+                    self.collision_system.optimize_partitioning()
                 
                 update_time = time.time() - start_time
                 log_performance("Game Update", update_time)
+                self.perf_monitor.end_section("update")
         except Exception as e:
             log_error(e, "Error updating game state")
             raise GameStateError("Failed to update game state") from e
@@ -937,15 +1023,13 @@ class Game:
     def check_collisions(self):
         """
         Check for collisions between game objects.
-        Uses spatial hash grid for optimized collision detection.
+        Uses the optimized collision system for better performance.
         """
         try:
-            # Get collisions from the sprite manager
-            # This uses the spatial hash grid to efficiently find potential collisions
-            collisions = self.sprite_manager.check_collisions()
+            self.perf_monitor.start_section("collision")
             
-            # Process bullet-enemy collisions
-            for enemy, bullet in collisions.get('bullet_enemy', []):
+            # Process bullet-enemy collisions (high priority)
+            def bullet_enemy_callback(bullet, enemy):
                 # Apply damage to enemy
                 if enemy.take_damage(1):
                     # Enemy was destroyed
@@ -967,20 +1051,32 @@ class Game:
                     # Create explosion at enemy position
                     self.create_explosion(enemy.rect.center, size="lg")
                     
-                # Remove bullet that hit enemy
-                self.sprite_manager.remove_sprite(bullet)
+                    # Remove destroyed enemy
+                    self.sprite_manager.remove_sprite(enemy)
                 
-            # Process player-enemy collisions
-            for enemy in collisions.get('player_enemy', []):
-                if not self.player.invulnerable:
+                # Always remove bullet that hit enemy
+                self.sprite_manager.remove_sprite(bullet)
+            
+            # Check bullet-enemy collisions
+            self.collision_system.check_collisions(
+                self.sprite_manager.bullets, 
+                'enemy', 
+                bullet_enemy_callback,
+                use_distance=True,
+                priority="high"
+            )
+            
+            # Process player-enemy collisions (high priority)
+            def player_enemy_callback(player, enemy):
+                if not player.invulnerable:
                     # Player takes damage
-                    if not self.player.take_damage():
+                    if not player.take_damage():
                         # Player was destroyed
                         self.game_over = True
                         # Update high score if needed
                         if self.score > self.high_score:
                             self.high_score = self.score
-                        self.create_explosion(self.player.rect.center, size="xl")
+                        self.create_explosion(player.rect.center, size="xl")
                         if game_over_sound:
                             game_over_sound.play()
                     else:
@@ -992,108 +1088,188 @@ class Game:
                 self.sprite_manager.remove_sprite(enemy)
                 self.create_explosion(enemy.rect.center, size="lg")
             
-            # Process player-powerup collisions
-            for powerup in collisions.get('player_powerup', []):
-                powerup.apply_effect(self.player)
+            # Check player-enemy collisions
+            self.collision_system.check_collisions(
+                [self.player], 
+                'enemy', 
+                player_enemy_callback,
+                use_distance=True,
+                priority="high"
+            )
+            
+            # Process player-powerup collisions (medium priority)
+            def player_powerup_callback(player, powerup):
+                powerup.apply_effect(player)
                 self.sprite_manager.remove_sprite(powerup)
                 if powerup_sound:
                     powerup_sound.play()
-                
-            # Process player-enemy bullet collisions
-            for bullet in collisions.get('player_enemy_bullet', []):
-                if not self.player.invulnerable:
+            
+            # Check player-powerup collisions
+            self.collision_system.check_collisions(
+                [self.player], 
+                'powerup', 
+                player_powerup_callback,
+                use_distance=True,
+                priority="medium"
+            )
+            
+            # Process player-enemy bullet collisions (high priority)
+            def player_enemy_bullet_callback(player, bullet):
+                if not player.invulnerable:
                     # Player takes damage
-                    if not self.player.take_damage():
+                    if not player.take_damage():
                         # Player was destroyed
                         self.game_over = True
                         # Update high score if needed
                         if self.score > self.high_score:
                             self.high_score = self.score
-                        self.create_explosion(self.player.rect.center, size="xl")
+                        self.create_explosion(player.rect.center, size="xl")
                         if game_over_sound:
                             game_over_sound.play()
                     else:
                         # Player was damaged but survived
                         if explosion_sound:
                             explosion_sound.play()
-                        
-                # Remove the enemy bullet
+                
+                # Always remove the enemy bullet
                 self.sprite_manager.remove_sprite(bullet)
+            
+            # Check player-enemy bullet collisions
+            self.collision_system.check_collisions(
+                [self.player], 
+                'enemy_bullet', 
+                player_enemy_bullet_callback,
+                use_distance=True,
+                priority="high"
+            )
+            
+            self.perf_monitor.end_section("collision")
         except Exception as e:
             log_error(e, "Error checking collisions")
             raise CollisionError("Failed to check collisions") from e
 
     def render(self):
         """
-        Render the game using the GameRenderer.
+        Render the game using the optimized GameRenderer.
         Implements dirty rectangle rendering for optimized performance.
         """
         try:
             # Start timing for performance measurement
             start_time = time.time()
             
-            # Start timing rendering operation
-            self.perf_monitor.start_section("render")
+            # Get all sprites to render - this includes all sprites, not just visible ones
+            all_sprites = []
+            for group in self.sprite_manager.get_all_groups():
+                all_sprites.extend(group.sprites())
             
-            # Set background
-            if background_img:
-                self.renderer.set_background(background_img)
-            else:
-                self.renderer.set_background()
+            # Use the optimized renderer to draw sprites with dirty rectangle optimization
+            visible_sprites = self.renderer.draw_sprites(all_sprites)
             
-            # Clear previous sprite positions to create dirty rectangles
-            self.renderer.clear(self.sprite_manager.get_all_groups())
+            # Draw UI elements (will be included in dirty rects by renderer)
+            self.draw_ui()
             
-            # Draw all sprites 
-            dirty_rects = self.renderer.draw(self.sprite_manager.get_all_groups())
-            
-            # Draw UI elements
-            # Score
-            score_text = font.render(f"Score: {self.score}", True, WHITE)
-            self.screen.blit(score_text, (10, 10))
-            
-            # High score
-            high_score_text = small_font.render(f"High Score: {self.high_score}", True, WHITE)
-            self.screen.blit(high_score_text, (10, 50))
-            
-            # Draw health bar
-            self.draw_health_bar(self.screen, 10, 80, self.player.health / self.player.max_health)
-            
-            # Shield timer if active
-            if self.player.invulnerable:
-                shield_pct = (pygame.time.get_ticks() - self.player.invulnerable_timer) / self.player.invulnerable_duration
-                shield_text = small_font.render(f"Shield: {(1-shield_pct)*100:.0f}%", True, YELLOW)
-                self.screen.blit(shield_text, (WINDOW_WIDTH - 150, 10))
-            
-            # FPS counter if enabled
-            if self.show_fps:
-                fps = self.perf_monitor.get_fps()
-                fps_text = small_font.render(f"FPS: {fps:.1f}", True, GREEN)
-                self.screen.blit(fps_text, (WINDOW_WIDTH - 100, 50))
-            
-            # Game state screens
-            if self.game_over:
-                self.show_game_over()
-            elif self.paused:
-                self.show_pause_screen()
-                
             # Draw performance monitor if enabled
-            if hasattr(self.perf_monitor, 'display_enabled') and self.perf_monitor.display_enabled:
-                metrics_rect = self.perf_monitor.draw(self.screen)
-                if metrics_rect:
-                    dirty_rects.append(metrics_rect)
+            if self.perf_monitor.display_enabled:
+                self.perf_monitor.draw(self.screen)
             
-            # Update only the necessary parts of the screen (dirty rectangles)
-            self.renderer.update_display(dirty_rects)
-            
-            # End timing rendering operation
-            self.perf_monitor.end_section("render")
+            # Draw debugging visualizations if enabled
+            if hasattr(self, 'debug_mode') and self.debug_mode:
+                self.collision_system.draw_debug(self.screen)
             
             render_time = time.time() - start_time
             log_performance("Game Render", render_time)
         except Exception as e:
             log_error(e, "Error rendering game state")
             raise RenderError("Failed to render game state") from e
+    
+    def draw_ui(self):
+        """
+        Draw all UI elements like score, health bar, and game state overlays.
+        """
+        # Create a semi-transparent UI background for better readability
+        ui_bg = pygame.Surface((self.screen_width, 120), pygame.SRCALPHA)
+        ui_bg.fill((0, 0, 0, 100))  # Semi-transparent black
+        self.screen.blit(ui_bg, (0, 0))
+        # Make sure UI area is marked as dirty
+        ui_rect = pygame.Rect(0, 0, self.screen_width, 120)
+        self.renderer.dirty_rects.append(ui_rect)
+        
+        # Score - more prominent
+        self.renderer.draw_text(f"Score: {self.score}", 10, 10, (255, 255, 255), font)
+        
+        # High score
+        self.renderer.draw_text(f"High Score: {self.high_score}", 10, 50, (255, 255, 255), small_font)
+        
+        # Draw health bar - larger and more visible
+        self.draw_health_bar(self.renderer.screen, 10, 80, self.player.health / self.player.max_health)
+        
+        # Shield timer if active
+        if self.player.invulnerable:
+            shield_pct = (pygame.time.get_ticks() - self.player.invulnerable_timer) / self.player.invulnerable_duration
+            self.renderer.draw_text(f"Shield: {(1-shield_pct)*100:.0f}%", self.screen_width - 150, 10, (255, 255, 0), small_font)
+        
+        # FPS counter if enabled
+        if self.show_fps:
+            fps = self.perf_monitor.get_fps()
+            self.renderer.draw_text(f"FPS: {fps:.1f}", self.screen_width - 100, 50, (0, 255, 0), small_font)
+            
+        # Version info - always show in bottom right
+        version_text = f"v{VERSION}"
+        self.renderer.draw_text(version_text, self.screen_width - 60, self.screen_height - 20, (150, 150, 150), small_font)
+        
+        # Game state screens
+        if self.game_over:
+            self.show_game_over()
+            # Force full screen update for game over screen
+            self.renderer.force_full_redraw()
+        elif self.paused:
+            self.show_pause_screen()
+            # Force full screen update for pause screen
+            self.renderer.force_full_redraw()
+
+    def draw_health_bar(self, surf, x, y, pct):
+        """
+        Draw a health bar on the screen.
+        
+        Args:
+            surf (Surface): Surface to draw on
+            x (int): X position
+            y (int): Y position
+            pct (float): Percentage of health (0.0 to 1.0)
+        """
+        if pct < 0:
+            pct = 0
+        BAR_LENGTH = 200  # Increased from 100
+        BAR_HEIGHT = 20   # Increased from 10
+        fill = pct * BAR_LENGTH
+        
+        # Draw background/border for the health bar
+        outline_rect = pygame.Rect(x, y, BAR_LENGTH, BAR_HEIGHT)
+        pygame.draw.rect(surf, (50, 50, 50), outline_rect)  # Dark gray background
+        
+        # Draw the filled portion
+        fill_rect = pygame.Rect(x, y, fill, BAR_HEIGHT)
+        
+        # Color based on health percentage
+        if pct > 0.6:
+            color = (0, 255, 0)  # Green
+        elif pct > 0.3:
+            color = (255, 255, 0)  # Yellow
+        else:
+            color = (255, 0, 0)  # Red
+            
+        pygame.draw.rect(surf, color, fill_rect)
+        pygame.draw.rect(surf, (255, 255, 255), outline_rect, 2)  # White border
+        
+        # Add health text
+        health_text = small_font.render(f"Health: {int(pct * 100)}%", True, (255, 255, 255))
+        text_pos = (x + 5, y + (BAR_HEIGHT - health_text.get_height()) // 2)
+        surf.blit(health_text, text_pos)
+        
+        # Add this area to dirty rects to ensure it updates
+        # Add a bit of padding to the health bar area to ensure complete rendering
+        padded_rect = outline_rect.inflate(8, 8)
+        self.renderer.dirty_rects.append(padded_rect)
 
     def run(self):
         """
@@ -1109,13 +1285,13 @@ class Game:
             except:
                 log_warning("Could not play background music")
             
+            # Force an initial full redraw
+            self.renderer.force_full_redraw()
+            
             # Main game loop
             while self.running:
                 # Start timing the frame
                 self.perf_monitor.start_frame()
-                
-                # Cap the frame rate
-                self.clock.tick(60)
                 
                 # Handle input
                 self.handle_input()
@@ -1151,6 +1327,12 @@ class Game:
                 
                 # End timing the frame
                 self.perf_monitor.end_frame()
+                
+                # Limit the frame rate - but don't use clock.tick which blocks
+                # Instead, just sleep for a tiny amount if we're ahead of schedule
+                frame_time = time.time() - self.perf_monitor.frame_start_time
+                if frame_time < 1/60:  # If we're running faster than 60 FPS
+                    time.sleep(max(0, (1/60) - frame_time))
             
             log_info("Game loop ended normally")
         except GameError as e:
@@ -1250,32 +1432,6 @@ class Game:
         except Exception as e:
             log_error(e, "Error creating explosion")
 
-    def draw_health_bar(self, surf, x, y, pct):
-        """
-        Draw a health bar on the screen.
-        
-        Args:
-            surf (Surface): Surface to draw on
-            x (int): X position
-            y (int): Y position
-            pct (float): Percentage of health (0.0 to 1.0)
-        """
-        if pct < 0:
-            pct = 0
-        BAR_LENGTH = 100
-        BAR_HEIGHT = 10
-        fill = pct * BAR_LENGTH
-        outline_rect = pygame.Rect(x, y, BAR_LENGTH, BAR_HEIGHT)
-        fill_rect = pygame.Rect(x, y, fill, BAR_HEIGHT)
-        if pct > 0.6:
-            color = GREEN
-        elif pct > 0.3:
-            color = YELLOW
-        else:
-            color = RED
-        pygame.draw.rect(surf, color, fill_rect)
-        pygame.draw.rect(surf, WHITE, outline_rect, 2)
-
     def spawn_enemy(self):
         """
         Spawn a new enemy based on probability and return it.
@@ -1312,30 +1468,38 @@ class Game:
         """
         Display the game over screen with final score.
         """
-        game_over_text = font.render("GAME OVER! Press R to restart", True, WHITE)
-        score_text = font.render(f"Final Score: {self.score}", True, WHITE)
-        high_score_text = font.render(f"High Score: {self.high_score}", True, YELLOW)
+        # Semi-transparent overlay
+        overlay = pygame.Surface((self.screen_width, self.screen_height), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 180))  # More opaque
+        self.screen.blit(overlay, (0, 0))
         
-        self.screen.blit(game_over_text, (WINDOW_WIDTH//2 - game_over_text.get_width()//2, WINDOW_HEIGHT//2 - 60))
-        self.screen.blit(score_text, (WINDOW_WIDTH//2 - score_text.get_width()//2, WINDOW_HEIGHT//2))
-        self.screen.blit(high_score_text, (WINDOW_WIDTH//2 - high_score_text.get_width()//2, WINDOW_HEIGHT//2 + 40))
+        game_over_text = font.render("GAME OVER! Press R to restart", True, (255, 255, 255))
+        score_text = font.render(f"Final Score: {self.score}", True, (255, 255, 255))
+        high_score_text = font.render(f"High Score: {self.high_score}", True, (255, 255, 0))
         
-        credit_text = small_font.render("Press ESC to quit", True, WHITE)
-        self.screen.blit(credit_text, (WINDOW_WIDTH//2 - credit_text.get_width()//2, WINDOW_HEIGHT - 50))
+        self.screen.blit(game_over_text, (self.screen_width//2 - game_over_text.get_width()//2, self.screen_height//2 - 60))
+        self.screen.blit(score_text, (self.screen_width//2 - score_text.get_width()//2, self.screen_height//2))
+        self.screen.blit(high_score_text, (self.screen_width//2 - high_score_text.get_width()//2, self.screen_height//2 + 40))
+        
+        credit_text = small_font.render("Press ESC to quit", True, (255, 255, 255))
+        self.screen.blit(credit_text, (self.screen_width//2 - credit_text.get_width()//2, self.screen_height - 50))
 
     def show_pause_screen(self):
         """
         Display pause screen overlay.
         """
-        pause_text = font.render("PAUSED", True, WHITE)
-        resume_text = small_font.render("Press P to resume", True, WHITE)
-        
-        overlay = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.SRCALPHA)
+        # Semi-transparent overlay
+        overlay = pygame.Surface((self.screen_width, self.screen_height), pygame.SRCALPHA)
         overlay.fill((0, 0, 0, 150))  # Semi-transparent black
         self.screen.blit(overlay, (0, 0))
         
-        self.screen.blit(pause_text, (WINDOW_WIDTH//2 - pause_text.get_width()//2, WINDOW_HEIGHT//2 - 50))
-        self.screen.blit(resume_text, (WINDOW_WIDTH//2 - resume_text.get_width()//2, WINDOW_HEIGHT//2 + 10))
+        pause_text = font.render("PAUSED", True, (255, 255, 255))
+        resume_text = small_font.render("Press P to resume", True, (255, 255, 255))
+        version_text = small_font.render(f"Space Shooter {VERSION} - {VERSION_NAME}", True, (200, 200, 200))
+        
+        self.screen.blit(pause_text, (self.screen_width//2 - pause_text.get_width()//2, self.screen_height//2 - 50))
+        self.screen.blit(resume_text, (self.screen_width//2 - resume_text.get_width()//2, self.screen_height//2 + 10))
+        self.screen.blit(version_text, (self.screen_width//2 - version_text.get_width()//2, self.screen_height//2 + 50))
 
 # Replace the global game initialization code with a main function
 def main():

@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Release Descriptions
 
+### Version 0.3.9 (Stable)
+A performance optimization release that dramatically improves rendering efficiency and gameplay smoothness. This version implements dirty rectangle rendering, spatial partitioning for collision detection, and fixes visual artifacts to provide a stable 60+ FPS experience on most systems.
+
 ### Version 0.3.8.5 (Beta)
 A cleanup and bug-fixing release that addresses remaining issues with the game's architecture. This version fully transitions to an object-oriented design, resolves runtime errors, and ensures consistent high score tracking.
 
@@ -45,6 +48,36 @@ A bug-fix and improvement release that adds essential game features like scoring
 
 ### Version 0.1.0 (Pre-Alpha)
 The initial release of the Space Shooter game, establishing the basic game mechanics and structure. This version provides the foundation for all future development.
+
+## [0.3.9] - 2023-10-25
+
+### Added
+- Added dirty rectangle rendering for optimized performance
+- Added spatial partitioning for collision detection
+- Added comprehensive performance monitoring system
+- Added semi-transparent UI background for better readability
+- Added FPS counter and performance displays
+- Added intelligent redraw scheduling to prevent screen blinking
+- Added cached text rendering system
+- Added RELEASE_NOTES.md with detailed release information
+
+### Changed
+- Improved sprite cleanup to eliminate trail artifacts
+- Enhanced text rendering with surface caching
+- Improved collision detection efficiency with spatial partitioning 
+- Increased health bar size and visibility
+- Optimized full screen redraw intervals
+- Enhanced UI element clarity and visibility
+- Improved overall rendering performance
+
+### Fixed
+- Fixed health bar not displaying properly
+- Fixed sprite trail artifacts
+- Fixed flickering text issues
+- Fixed screen blinking during periodic redraws
+- Fixed UI display issues
+- Fixed memory usage with proper caching
+- Fixed collision detection edge cases
 
 ## [0.3.8.5] - 2025-03-28
 

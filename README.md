@@ -1,134 +1,91 @@
-# Space Shooter Game
+# Space Shooter v0.3.9
 
-A visually stunning and highly immersive 2D space shooter game built with Python and Pygame. Control your spaceship, shoot enemies, collect power-ups, and try to survive as long as possible!
-
-*Last updated: March 27, 2025*
-*Current version: 0.3.7*
-
-![Space Shooter Game](assets/images/background.jpg)
+An optimized 2D space shooter game built with Pygame, featuring performance enhancements using dirty rectangle rendering and spatial partitioning for collision detection.
 
 ## Features
 
-- Smooth spaceship controls with responsive gameplay
-- Rich audiovisual experience with custom graphics and sound effects
-- Multiple enemy types with unique behaviors and visuals
-- Power-up system with three types of upgrades and visual effects
-- Progressive difficulty system that keeps the challenge fresh
-- Boss battles with unique attack patterns and projectiles
-- Weapon power levels with visual feedback
-- Health and shield system with animations
-- Scoring system with high score tracking
-- 60 FPS gameplay with optimized rendering
-- Game over screen with restart option
-- Immersive background music and sound effects
-- Dynamic explosion animations
-- Visual health bar and power indicators
-- Pause functionality
-- Star background effect when playing without background image
-- Player damage visual feedback
-- Detailed game UI with FPS counter and shield timer
-- Performance optimization system with dirty rectangle rendering
-- Advanced collision detection with spatial hash grid
-- Real-time performance monitoring (toggle with 'M' key)
+- Smooth 60+ FPS gameplay with optimized rendering
+- Diverse enemy types with different behaviors
+- Power-up system with various buffs
+- Performance monitoring and visualization tools
+- Optimized collision detection using spatial partitioning
+- Visual effects and animations
 
 ## Installation
 
-1. Clone this repository:
-```bash
-git clone https://github.com/Mahdiglm/space-shooter.git
-cd space-shooter
+### Requirements
+- Python 3.7 or higher
+- Pygame 2.0.0 or higher
+
+### Setup
+1. Clone this repository
+2. Install the required packages:
 ```
-
-2. Install the required dependencies:
-```bash
-pip install -r requirements.txt
+pip install pygame
 ```
-
-## How to Play
-
-1. Run the game:
-```bash
+3. Run the game:
+```
 python main.py
 ```
 
-2. Controls:
-- LEFT ARROW: Move spaceship left
-- RIGHT ARROW: Move spaceship right
-- SPACEBAR: Shoot bullets
-- P: Pause/unpause the game
-- M: Toggle performance metrics display
-- R: Restart game after game over
-- ESC: Quit the game
+## Gameplay
 
-3. Enemy Types:
-- Regular Enemies (Red): Standard enemies
-- Fast Enemies (Blue): Faster but more fragile, with horizontal movement
-- Tank Enemies (Green): Slower but tougher, with more health
-- Boss Enemy (Yellow): Appears at 1000 points, shoots projectiles, has complex movement patterns
+### Controls
+- **Arrow Keys**: Move the player ship
+- **Space**: Shoot
+- **P**: Pause the game
+- **ESC**: Quit
+- **R**: Restart (after game over)
 
-4. Power-ups:
-- Health (Green): Restores 20 health points
-- Power (Blue): Increases weapon power level
-- Shield (Yellow): Temporary invulnerability for 5 seconds
-- Rapid Fire (Purple): Increases firing rate for 8 seconds
-- Double Points (Orange): Doubles all points earned for 10 seconds
+### Debug Controls
+- **F**: Toggle FPS display
+- **T**: Toggle terminal FPS reporting
+- **D**: Toggle debug visualization
+- **R**: Toggle dirty rectangles visualization (when not in game over state)
+- **C**: Force a full screen redraw
+- **M**: Toggle performance monitor display
 
-5. Weapon Power Levels:
-- Level 1: Single shot
-- Level 2: Double shot
-- Level 3: Triple shot
+### Power-ups
+- **Health**: Restores player health
+- **Power**: Increases weapon power level
+- **Shield**: Temporary invulnerability
 
-6. Objective:
-- Shoot enemies to score points
-- Collect power-ups to enhance your abilities
-- Avoid collisions with enemies and boss projectiles
-- Try to survive as long as possible
-- Defeat the boss enemy for bonus points
-- Beat your high score
+## Performance Optimizations
 
-7. Scoring:
-- Regular Enemy: 10 points
-- Fast Enemy: 15 points
-- Tank Enemy: 25 points
-- Boss Enemy: 150 points
+This game implements several performance optimizations:
 
-8. Difficulty:
-- Game becomes progressively harder over time
-- Enemy speed increases with difficulty
-- Boss appears at 1000 points
-- Try to achieve the highest score possible!
+1. **Dirty Rectangle Rendering**: Only update portions of the screen that have changed, significantly reducing GPU workload.
+2. **Spatial Partitioning**: Divides the game space into a grid for efficient collision detection, reducing the number of checks required.
+3. **Asset Caching**: Frequently used images and text are cached to reduce loading times.
+4. **Sprite Culling**: Off-screen sprites are skipped during rendering.
+5. **Optimized Collision Detection**: Uses circle-based collision for better accuracy and performance.
 
-## Development Roadmap
+## Debugging and Development
 
-Our development plan for Space Shooter is organized into near-term, mid-term, and long-term goals:
+Use the performance monitor (toggle with M key) to track:
+- FPS
+- Frame times
+- Update times
+- Render times
+- Collision detection times
 
-### Short-term Goals (v0.4.x)
-- Add a proper title screen with game logo and menu options
-- Implement multiple player ships with different characteristics
-- Add screen transitions between game states
-- Create a dedicated settings menu for audio/visual adjustments
-- Implement persistent high score leaderboard
+## Version History
 
-### Mid-term Goals (v0.5.x)
-- Design and implement 3 distinct game levels with unique backgrounds and enemy patterns
-- Add mini-boss encounters at the end of each level
-- Create a progression system with unlockable ships and weapons
-- Implement screen-clearing "bomb" special ability
-- Add dynamic weather/environment effects (space storms, asteroid fields)
+### v0.3.9 - "Performance Optimized" (Current)
+- Implemented dirty rectangle rendering for optimized performance
+- Added spatial partitioning for collision detection
+- Integrated comprehensive performance monitoring system
+- Enhanced UI elements with semi-transparent backgrounds
+- Fixed sprite trail artifacts and screen blinking
+- Improved text rendering with advanced caching
+- Increased health bar visibility and UI clarity
 
-### Long-term Goals (v1.0 and beyond)
-- Develop a story mode with mission objectives and narrative
-- Add cooperative multiplayer support for 2 players
-- Create custom level editor for community content
-- Implement advanced visual effects (particle systems, lighting)
-- Port to additional platforms (web, mobile, desktop apps)
+### v0.3.0
+- Initial game implementation
 
-### Technical Improvements
-- Convert to Entity Component System architecture
-- Implement asset streaming for larger levels
-- Create an advanced AI system for more engaging enemies
-- Add gamepad/controller support
-- Improve UI scalability for different screen resolutions
+## License
+
+This project is open-source. Feel free to use, modify, and distribute the code.
 
 ## Game Assets
 
@@ -136,19 +93,22 @@ Our development plan for Space Shooter is organized into near-term, mid-term, an
 - Sound effects and background music are sourced from OpenGameArt.org (CC0 Public Domain)
 - All assets are properly licensed and attributed to their respective sources
 
-## Latest Updates (v0.3.7)
+## Latest Updates (v0.3.9)
 
-- Added comprehensive technical documentation in new ARCHITECTURE.md file
-- Created FAQ.md with answers to common player and developer questions
-- Added Development Roadmap to the README.md
-- Enhanced code documentation with detailed inline comments
-- Improved overall code readability and organization
+- Fixed screen blinking during periodic redraws with intelligent redraw scheduling
+- Enhanced text rendering system with better caching and surface management
+- Improved sprite trail cleanup with better padding and background restoration
+- Added semi-transparent UI background for better readability
+- Increased health bar size and visibility
+- Optimized full screen redraw intervals to reduce visual artifacts
+- Created comprehensive RELEASE_NOTES.md with detailed changelog
 
 ## Documentation
 
 Space Shooter includes several documentation files to help users and developers:
 
 - **README.md**: General overview, features, and installation instructions
+- **RELEASE_NOTES.md**: Detailed information about the latest release
 - **ARCHITECTURE.md**: Technical architecture, performance systems, and extension guides
 - **FAQ.md**: Frequently asked questions for both players and developers
 - **CONTRIBUTING.md**: Guidelines for contributing to the project
@@ -180,13 +140,6 @@ This project is open source and welcomes contributions! We have several ways you
 - Create tutorials or guides
 
 For detailed guidelines, please check out our [Contributing Guidelines](CONTRIBUTING.md).
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-### Asset Licensing
-All game assets (images, sounds, and fonts) are original works created for this project and are licensed under the MIT License. No third-party assets are used in this game.
 
 ## Acknowledgments
 

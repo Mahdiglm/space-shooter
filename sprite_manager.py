@@ -143,6 +143,10 @@ class SpriteManager:
         """Get all sprites that are currently visible."""
         return self.visible_sprites
     
+    def get_all_sprites(self):
+        """Get all sprites from all groups as a list."""
+        return self.all_sprites.sprites()
+    
     def check_collisions(self):
         """
         Check collisions between sprites using the spatial hash.
