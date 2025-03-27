@@ -26,16 +26,19 @@ RED = (255, 0, 0)
 GREEN = (0, 255, 0)
 BLUE = (0, 0, 255)
 YELLOW = (255, 255, 0)
+PURPLE = (128, 0, 128)
 
 # Font
 font = pygame.font.Font(None, 36)
+small_font = pygame.font.Font(None, 24)
 
 # Game settings
-DIFFICULTY_INCREASE_RATE = 0.1
+DIFFICULTY_INCREASE_RATE = 0.08  # Reduced for better balance
 INITIAL_ENEMY_SPEED = 2
 MAX_ENEMY_SPEED = 5
-POWERUP_CHANCE = 0.1
+POWERUP_CHANCE = 0.15  # Increased powerup chance
 BOSS_SPAWN_SCORE = 1000
+SHIELD_DURATION = 5000  # 5 seconds, increased from 3 seconds
 
 # Load images
 # Try to load background image, fallback to black background if file not found
@@ -132,13 +135,16 @@ class Player(pygame.sprite.Sprite):
         super().__init__()
         if player_img:
             self.image = player_img
+            self.original_image = player_img
         else:
             self.image = pygame.Surface((50, 40))
             self.image.fill(WHITE)
+            self.original_image = self.image.copy()
         self.rect = self.image.get_rect()
+        self.radius = 20  # Collision radius, more accurate than rectangle
         self.rect.centerx = WINDOW_WIDTH // 2
         self.rect.bottom = WINDOW_HEIGHT - 10
-        self.speed = 5
+        self.speed = 6  # Slightly increased for better movement
         self.health = 100
         self.max_health = 100
         self.power_level = 1
@@ -146,8 +152,12 @@ class Player(pygame.sprite.Sprite):
         self.last_shot = 0
         self.invulnerable = False
         self.invulnerable_timer = 0
-        self.invulnerable_duration = 3000  # 3 seconds
+        self.invulnerable_duration = SHIELD_DURATION
         self.animation_tick = 0
+        # Damage flash
+        self.hit = False
+        self.hit_time = 0
+        self.hit_duration = 100  # Milliseconds for damage flash
 
     def update(self):
         keys = pygame.key.get_pressed()
@@ -156,22 +166,28 @@ class Player(pygame.sprite.Sprite):
         if keys[pygame.K_RIGHT] and self.rect.right < WINDOW_WIDTH:
             self.rect.x += self.speed
         
+        # Update damage flash
+        current_time = pygame.time.get_ticks()
+        if self.hit:
+            if current_time - self.hit_time > self.hit_duration:
+                self.hit = False
+                self.image = self.original_image.copy()
+        
         # Update invulnerability
         if self.invulnerable:
-            current_time = pygame.time.get_ticks()
             # Make the player blink when invulnerable
             self.animation_tick += 1
-            if self.animation_tick % 10 == 0:
-                if self.image == player_img:
-                    temp_img = pygame.Surface((50, 40), pygame.SRCALPHA)
-                    temp_img.fill((255, 255, 255, 128))  # Semi-transparent white
-                    self.image = temp_img
-                else:
-                    self.image = player_img if player_img else pygame.Surface((50, 40)).fill(WHITE)
+            if self.animation_tick % 8 == 0:  # Faster blinking
+                if not self.hit:  # Don't override damage flash
+                    if self.image.get_alpha() == 255 or self.image.get_alpha() is None:
+                        self.image.set_alpha(128)
+                    else:
+                        self.image.set_alpha(255)
             
             if current_time - self.invulnerable_timer > self.invulnerable_duration:
                 self.invulnerable = False
-                self.image = player_img if player_img else pygame.Surface((50, 40)).fill(WHITE)
+                self.image = self.original_image.copy()
+                self.image.set_alpha(255)  # Restore full opacity
 
     def shoot(self):
         current_time = pygame.time.get_ticks()
@@ -194,6 +210,16 @@ class Player(pygame.sprite.Sprite):
                     Bullet(self.rect.right - 10, self.rect.top)
                 ]
         return []
+    
+    def take_damage(self, amount=1):
+        if not self.invulnerable:
+            self.health -= amount
+            # Add damage flash
+            self.hit = True
+            self.hit_time = pygame.time.get_ticks()
+            temp_img = self.original_image.copy()
+            temp_img.fill(RED, special_flags=pygame.BLEND_RGB_ADD)
+            self.image = temp_img
 
 # Enemy base class
 class Enemy(pygame.sprite.Sprite):
@@ -205,17 +231,27 @@ class Enemy(pygame.sprite.Sprite):
             self.image = pygame.Surface((30, 30))
             self.image.fill(RED)
         self.rect = self.image.get_rect()
+        self.radius = 15  # Collision radius, more accurate than rectangle
         self.rect.x = random.randrange(WINDOW_WIDTH - self.rect.width)
         self.rect.y = random.randrange(-100, -40)
         self.speedy = random.randrange(1, 4)
+        self.speedx = 0
         self.health = 1
         self.points = 10
+        self.shoot_delay = None  # Most enemies don't shoot
 
     def update(self):
         self.rect.y += self.speedy
+        self.rect.x += self.speedx
+        # Bouncing off edges logic
+        if self.rect.left < 0 and self.speedx < 0:
+            self.speedx = -self.speedx
+        if self.rect.right > WINDOW_WIDTH and self.speedx > 0:
+            self.speedx = -self.speedx
         if self.rect.top > WINDOW_HEIGHT:
             self.rect.x = random.randrange(WINDOW_WIDTH - self.rect.width)
             self.rect.y = random.randrange(-100, -40)
+            self.speedy = random.randrange(1, 4)
 
 # Fast Enemy
 class FastEnemy(Enemy):
@@ -226,6 +262,7 @@ class FastEnemy(Enemy):
         else:
             self.image.fill(BLUE)
         self.speedy = random.randrange(4, 7)
+        self.speedx = random.choice([-2, -1, 0, 1, 2])  # Some horizontal movement
         self.health = 1
         self.points = 15
 
@@ -237,8 +274,8 @@ class TankEnemy(Enemy):
             self.image = tank_enemy_img
         else:
             self.image.fill(GREEN)
-        self.speedy = random.randrange(1, 2)
-        self.health = 3
+        self.speedy = random.randrange(1, 3)
+        self.health = 4  # Increased health for more challenge
         self.points = 25
 
 # Boss Enemy
@@ -251,24 +288,34 @@ class BossEnemy(Enemy):
             self.image = pygame.Surface((60, 60))
             self.image.fill(YELLOW)
         self.rect = self.image.get_rect()
+        self.radius = 30  # Collision radius, more accurate than rectangle
         self.rect.centerx = WINDOW_WIDTH // 2
-        self.rect.y = -60
+        self.rect.y = -80
         self.speedy = 1
-        self.health = 20
-        self.points = 100
+        self.speedx = 2
+        self.health = 25  # Increased for more challenge
+        self.points = 150  # Increased points reward
         self.movement_pattern = 0
         self.movement_timer = 0
+        self.last_shot = pygame.time.get_ticks()
+        self.shoot_delay = 2000  # 2 seconds between shots
 
     def update(self):
+        # Boss intro movement
+        if self.rect.top < 50:
+            self.rect.y += 1
+            return
+        
+        # Normal movement patterns
         self.movement_timer += 1
         if self.movement_timer > 60:
             self.movement_pattern = (self.movement_pattern + 1) % 4
             self.movement_timer = 0
 
         if self.movement_pattern == 0:
-            self.rect.x += 2
+            self.rect.x += self.speedx
         elif self.movement_pattern == 1:
-            self.rect.x -= 2
+            self.rect.x -= self.speedx
         elif self.movement_pattern == 2:
             self.rect.y += 1
         else:
@@ -276,8 +323,41 @@ class BossEnemy(Enemy):
 
         if self.rect.left < 0:
             self.rect.left = 0
+            self.speedx = abs(self.speedx)
         if self.rect.right > WINDOW_WIDTH:
             self.rect.right = WINDOW_WIDTH
+            self.speedx = -abs(self.speedx)
+        if self.rect.top < 50:
+            self.rect.top = 50
+        if self.rect.bottom > WINDOW_HEIGHT // 2:
+            self.rect.bottom = WINDOW_HEIGHT // 2
+    
+    def shoot(self):
+        now = pygame.time.get_ticks()
+        if now - self.last_shot > self.shoot_delay:
+            self.last_shot = now
+            return [
+                EnemyBullet(self.rect.centerx - 15, self.rect.bottom),
+                EnemyBullet(self.rect.centerx + 15, self.rect.bottom)
+            ]
+        return []
+
+# Enemy Bullet
+class EnemyBullet(pygame.sprite.Sprite):
+    def __init__(self, x, y):
+        super().__init__()
+        self.image = pygame.Surface((8, 8))
+        self.image.fill(PURPLE)
+        self.rect = self.image.get_rect()
+        self.radius = 4  # Collision radius
+        self.rect.centerx = x
+        self.rect.top = y
+        self.speedy = 6
+
+    def update(self):
+        self.rect.y += self.speedy
+        if self.rect.top > WINDOW_HEIGHT:
+            self.kill()
 
 # Power-up
 class PowerUp(pygame.sprite.Sprite):
@@ -297,12 +377,23 @@ class PowerUp(pygame.sprite.Sprite):
                 self.image.fill(YELLOW)
         
         self.rect = self.image.get_rect()
+        self.radius = 10  # Collision radius
         self.rect.centerx = x
         self.rect.centery = y
         self.speedy = 2
+        # Add a wobble effect
+        self.wobble = 0
+        self.wobble_dir = 1
+        self.wobble_speed = random.randint(1, 3) * 0.1
 
     def update(self):
         self.rect.y += self.speedy
+        # Wobble effect
+        self.wobble += self.wobble_speed * self.wobble_dir
+        if abs(self.wobble) > 1.5:
+            self.wobble_dir *= -1
+        self.rect.x += self.wobble_dir * self.wobble_speed
+        
         if self.rect.top > WINDOW_HEIGHT:
             self.kill()
 
@@ -316,6 +407,7 @@ class Bullet(pygame.sprite.Sprite):
             self.image = pygame.Surface((5, 10))
             self.image.fill(WHITE)
         self.rect = self.image.get_rect()
+        self.radius = 3  # Collision radius
         self.rect.centerx = x
         self.rect.bottom = y
         self.speedy = -10
@@ -336,7 +428,7 @@ class Explosion(pygame.sprite.Sprite):
         self.rect.center = center
         self.frame = 0
         self.last_update = pygame.time.get_ticks()
-        self.frame_rate = 50  # milliseconds
+        self.frame_rate = 40  # milliseconds, slightly faster animation
         
         # Try to load explosion animation frames
         self.explosion_anim = []
@@ -366,15 +458,44 @@ class Explosion(pygame.sprite.Sprite):
                 self.rect = self.image.get_rect()
                 self.rect.center = center
 
+# Star background effect
+class Star(pygame.sprite.Sprite):
+    def __init__(self):
+        super().__init__()
+        self.size = random.randint(1, 3)
+        self.image = pygame.Surface((self.size, self.size))
+        brightness = random.randint(180, 255)
+        self.image.fill((brightness, brightness, brightness))
+        self.rect = self.image.get_rect()
+        self.rect.x = random.randrange(WINDOW_WIDTH)
+        self.rect.y = random.randrange(WINDOW_HEIGHT)
+        self.speedy = random.randrange(1, 3)
+
+    def update(self):
+        self.rect.y += self.speedy
+        if self.rect.top > WINDOW_HEIGHT:
+            self.rect.x = random.randrange(WINDOW_WIDTH)
+            self.rect.y = random.randrange(-50, -10)
+            self.speedy = random.randrange(1, 3)
+
 # Create sprite groups
 all_sprites = pygame.sprite.Group()
 enemies = pygame.sprite.Group()
 bullets = pygame.sprite.Group()
+enemy_bullets = pygame.sprite.Group()
 powerups = pygame.sprite.Group()
 explosions = pygame.sprite.Group()
+stars = pygame.sprite.Group()
 player = Player()
 
 all_sprites.add(player)
+
+# Create background stars
+if background_img is None:  # Only add stars if no background image
+    for i in range(50):
+        star = Star()
+        stars.add(star)
+        all_sprites.add(star)
 
 # Spawn initial enemies
 for i in range(6):
@@ -384,10 +505,13 @@ for i in range(6):
 
 # Game variables
 score = 0
+high_score = 0  # Added high score tracking
 game_over = False
+paused = False
 clock = pygame.time.Clock()
 difficulty = 1.0
 boss_spawned = False
+boss = None  # Reference to boss when spawned
 
 def draw_health_bar(surf, x, y, pct):
     if pct < 0:
@@ -397,7 +521,13 @@ def draw_health_bar(surf, x, y, pct):
     fill = (pct / 100) * BAR_LENGTH
     outline_rect = pygame.Rect(x, y, BAR_LENGTH, BAR_HEIGHT)
     fill_rect = pygame.Rect(x, y, fill, BAR_HEIGHT)
-    pygame.draw.rect(surf, GREEN, fill_rect)
+    if pct > 0.6:
+        color = GREEN
+    elif pct > 0.3:
+        color = YELLOW
+    else:
+        color = RED
+    pygame.draw.rect(surf, color, fill_rect)
     pygame.draw.rect(surf, WHITE, outline_rect, 2)
 
 def spawn_enemy():
@@ -418,8 +548,28 @@ def spawn_powerup(x, y):
 def show_game_over():
     game_over_text = font.render("GAME OVER! Press R to restart", True, WHITE)
     score_text = font.render(f"Final Score: {score}", True, WHITE)
-    screen.blit(game_over_text, (WINDOW_WIDTH//2 - game_over_text.get_width()//2, WINDOW_HEIGHT//2 - 50))
-    screen.blit(score_text, (WINDOW_WIDTH//2 - score_text.get_width()//2, WINDOW_HEIGHT//2 + 10))
+    high_score_text = font.render(f"High Score: {high_score}", True, YELLOW)
+    
+    screen.blit(game_over_text, (WINDOW_WIDTH//2 - game_over_text.get_width()//2, WINDOW_HEIGHT//2 - 60))
+    screen.blit(score_text, (WINDOW_WIDTH//2 - score_text.get_width()//2, WINDOW_HEIGHT//2))
+    screen.blit(high_score_text, (WINDOW_WIDTH//2 - high_score_text.get_width()//2, WINDOW_HEIGHT//2 + 40))
+    
+    credit_text = small_font.render("Press ESC to quit", True, WHITE)
+    screen.blit(credit_text, (WINDOW_WIDTH//2 - credit_text.get_width()//2, WINDOW_HEIGHT - 50))
+    
+    pygame.display.flip()
+
+def show_pause_screen():
+    pause_text = font.render("PAUSED", True, WHITE)
+    resume_text = small_font.render("Press P to resume", True, WHITE)
+    
+    overlay = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.SRCALPHA)
+    overlay.fill((0, 0, 0, 150))  # Semi-transparent black
+    screen.blit(overlay, (0, 0))
+    
+    screen.blit(pause_text, (WINDOW_WIDTH//2 - pause_text.get_width()//2, WINDOW_HEIGHT//2 - 50))
+    screen.blit(resume_text, (WINDOW_WIDTH//2 - resume_text.get_width()//2, WINDOW_HEIGHT//2 + 10))
+    
     pygame.display.flip()
 
 # Start background music
@@ -436,7 +586,21 @@ while running:
         if event.type == pygame.QUIT:
             running = False
         elif event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_SPACE and not game_over:
+            if event.key == pygame.K_ESCAPE:
+                running = False
+            elif event.key == pygame.K_p:
+                paused = not paused
+                if paused:
+                    try:
+                        pygame.mixer.music.pause()
+                    except:
+                        pass
+                else:
+                    try:
+                        pygame.mixer.music.unpause()
+                    except:
+                        pass
+            elif event.key == pygame.K_SPACE and not game_over and not paused:
                 new_bullets = player.shoot()
                 for bullet in new_bullets:
                     all_sprites.add(bullet)
@@ -453,18 +617,24 @@ while running:
                 player.rect.bottom = WINDOW_HEIGHT - 10
                 # Clear and respawn enemies
                 for sprite in all_sprites:
-                    if sprite != player:
+                    if sprite != player and not isinstance(sprite, Star):
                         sprite.kill()
                 for i in range(6):
                     enemy = spawn_enemy()
                     all_sprites.add(enemy)
                     enemies.add(enemy)
                 boss_spawned = False
+                boss = None
                 # Restart background music
                 try:
                     pygame.mixer.music.play(loops=-1)
                 except:
                     pass
+
+    if paused:
+        show_pause_screen()
+        clock.tick(5)  # Reduce CPU usage while paused
+        continue
 
     if not game_over:
         # Update
@@ -472,6 +642,7 @@ while running:
 
         # Increase difficulty over time
         difficulty += DIFFICULTY_INCREASE_RATE * (1/60)  # 60 FPS
+        difficulty = min(difficulty, 2.5)  # Cap difficulty
 
         # Spawn boss at certain score
         if score >= BOSS_SPAWN_SCORE and not boss_spawned:
@@ -480,16 +651,25 @@ while running:
             enemies.add(boss)
             boss_spawned = True
 
-        # Check for bullet-enemy collisions
-        hits = pygame.sprite.groupcollide(enemies, bullets, False, True)
+        # Handle boss shooting
+        if boss_spawned and boss and boss.rect.top > 0:
+            enemy_shots = boss.shoot()
+            for bullet in enemy_shots:
+                all_sprites.add(bullet)
+                enemy_bullets.add(bullet)
+
+        # Check for bullet-enemy collisions (using better circle collision)
+        hits = pygame.sprite.groupcollide(enemies, bullets, False, True, pygame.sprite.collide_circle)
         for enemy, bullet_list in hits.items():
             enemy.health -= len(bullet_list)
             if enemy.health <= 0:
                 score += enemy.points
+                if score > high_score:
+                    high_score = score
                 if explosion_sound:
                     explosion_sound.play()
                 # Create explosion
-                explosion = Explosion(enemy.rect.center, 30)
+                explosion = Explosion(enemy.rect.center, max(30, enemy.rect.width))
                 all_sprites.add(explosion)
                 explosions.add(explosion)
                 # Chance to spawn power-up
@@ -497,17 +677,38 @@ while running:
                     powerup = spawn_powerup(enemy.rect.centerx, enemy.rect.centery)
                     all_sprites.add(powerup)
                     powerups.add(powerup)
+                
+                if isinstance(enemy, BossEnemy):
+                    boss_spawned = False
+                    boss = None
+                
                 enemy.kill()
                 if not boss_spawned:
                     new_enemy = spawn_enemy()
                     all_sprites.add(new_enemy)
                     enemies.add(new_enemy)
 
-        # Check for player-enemy collisions
+        # Check for player-enemy collisions (using better circle collision)
         if not player.invulnerable:
-            hits = pygame.sprite.spritecollide(player, enemies, False)
+            hits = pygame.sprite.spritecollide(player, enemies, False, pygame.sprite.collide_circle)
             if hits:
-                player.health -= 1
+                player.take_damage()
+                if player.health <= 0:
+                    if game_over_sound:
+                        game_over_sound.play()
+                    # Stop background music
+                    pygame.mixer.music.stop()
+                    game_over = True
+                    # Create player explosion
+                    explosion = Explosion(player.rect.center, 50)
+                    all_sprites.add(explosion)
+                    explosions.add(explosion)
+        
+        # Check for player-enemy bullet collisions
+        if not player.invulnerable:
+            hits = pygame.sprite.spritecollide(player, enemy_bullets, True, pygame.sprite.collide_circle)
+            if hits:
+                player.take_damage(len(hits))
                 if player.health <= 0:
                     if game_over_sound:
                         game_over_sound.play()
@@ -520,7 +721,7 @@ while running:
                     explosions.add(explosion)
 
         # Check for power-up collisions
-        hits = pygame.sprite.spritecollide(player, powerups, True)
+        hits = pygame.sprite.spritecollide(player, powerups, True, pygame.sprite.collide_circle)
         for powerup in hits:
             if powerup_sound:
                 powerup_sound.play()
@@ -537,20 +738,44 @@ while running:
             screen.blit(background_img, (0, 0))
         else:
             screen.fill(BLACK)
+            all_sprites.draw(screen)
         
-        all_sprites.draw(screen)
+        # Always draw all sprites if using stars with background
+        if background_img:
+            all_sprites.draw(screen)
         
-        # Draw score, health, and power level
+        # Draw UI elements
         score_text = font.render(f"Score: {score}", True, WHITE)
+        high_score_text = small_font.render(f"High Score: {high_score}", True, YELLOW)
         power_text = font.render(f"Power: {player.power_level}", True, WHITE)
+        fps_text = small_font.render(f"FPS: {int(clock.get_fps())}", True, WHITE)
+        
         screen.blit(score_text, (10, 10))
-        draw_health_bar(screen, 10, 50, player.health)
-        screen.blit(power_text, (10, 70))
+        screen.blit(high_score_text, (10, 40))
+        draw_health_bar(screen, 10, 70, player.health)
+        screen.blit(power_text, (10, 90))
+        screen.blit(fps_text, (WINDOW_WIDTH - 80, 10))
+        
+        # Draw boss health if boss exists
+        if boss_spawned and boss:
+            boss_health_pct = boss.health / 25.0 * 100
+            boss_text = small_font.render("BOSS", True, YELLOW)
+            screen.blit(boss_text, (WINDOW_WIDTH//2 - boss_text.get_width()//2, 10))
+            draw_health_bar(screen, WINDOW_WIDTH//2 - 50, 30, boss_health_pct)
         
         # Draw invulnerability indicator
         if player.invulnerable:
             shield_text = font.render("SHIELD ACTIVE!", True, YELLOW)
+            # Draw remaining shield time
+            remaining = max(0, (player.invulnerable_timer + player.invulnerable_duration - pygame.time.get_ticks()) / 1000)
+            time_text = small_font.render(f"{remaining:.1f}s", True, YELLOW)
             screen.blit(shield_text, (WINDOW_WIDTH - 200, 10))
+            screen.blit(time_text, (WINDOW_WIDTH - 200, 40))
+        
+        # Draw controls hint for new players
+        if score < 50:
+            hint_text = small_font.render("← → to move, SPACE to shoot, P to pause", True, WHITE)
+            screen.blit(hint_text, (WINDOW_WIDTH//2 - hint_text.get_width()//2, WINDOW_HEIGHT - 30))
         
         pygame.display.flip()
     else:

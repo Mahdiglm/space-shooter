@@ -5,6 +5,44 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2025-03-27
+
+### Added
+- Pause functionality (Press P to pause/unpause)
+- High score tracking
+- FPS counter
+- Star background when no background image is available
+- Enemy bullets for boss fights
+- Player damage visual feedback
+- Wobble effect for powerups
+- Remaining shield time display
+- Game controls hint for new players
+- Color-coded health bar
+- Boss health bar display
+- Quit option with ESC key
+
+### Changed
+- Improved collision detection with circular hitboxes
+- Enhanced player movement speed for better responsiveness
+- Better difficulty scaling with a maximum cap
+- Increased shield duration from 3 to 5 seconds
+- More dynamic boss behavior with shooting ability
+- Rebalanced gameplay for better challenge:
+  - Increased powerup drop chance
+  - Improved enemy movement patterns
+  - Enhanced boss rewards
+- More efficient screen updates
+- Reduced CPU usage while paused
+
+### Fixed
+- Player shield visual effect now uses transparency instead of color swapping
+- Fixed potential memory leak with sprite management
+- Fixed enemy spawning at screen edges
+- More accurate collision detection for all game objects
+- Fixed potential crash when loading missing assets
+- Performance optimizations for smoother gameplay
+- Better enemy spawning logic
+
 ## [0.3.0] - 2025-03-27
 
 ### Added
