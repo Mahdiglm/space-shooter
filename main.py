@@ -143,34 +143,56 @@ class Player(pygame.sprite.Sprite):
             self.image = pygame.Surface((50, 40))
             self.image.fill(WHITE)
             self.original_image = self.image.copy()
+        
         self.rect = self.image.get_rect()
-        self.radius = 20  # Collision radius, more accurate than rectangle
+        self.radius = 20
         self.rect.centerx = WINDOW_WIDTH // 2
         self.rect.bottom = WINDOW_HEIGHT - 10
-        self.speed = 6  # Slightly increased for better movement
-        self.health = 100
-        self.max_health = 100
+        
+        # Base stats from config
+        self.speed = GAME_BALANCE['player']['base_speed']
+        self.health = GAME_BALANCE['player']['base_health']
+        self.max_health = GAME_BALANCE['player']['base_health']
         self.power_level = 1
-        self.shoot_delay = 250  # milliseconds
+        self.shoot_delay = GAME_BALANCE['player']['base_shoot_delay']
         self.last_shot = 0
+        
+        # Power-up effects
         self.invulnerable = False
         self.invulnerable_timer = 0
-        self.invulnerable_duration = SHIELD_DURATION
+        self.invulnerable_duration = POWERUP_TYPES['shield']['duration']
+        self.rapid_fire_end = 0
+        self.points_multiplier = 1
+        self.double_points_end = 0
+        
+        # Visual effects
         self.animation_tick = 0
-        # Damage flash
         self.hit = False
         self.hit_time = 0
-        self.hit_duration = 100  # Milliseconds for damage flash
+        self.hit_duration = VISUAL_SETTINGS['damage_flash_duration']
 
     def update(self):
+        # Movement
         keys = pygame.key.get_pressed()
         if keys[pygame.K_LEFT] and self.rect.left > 0:
             self.rect.x -= self.speed
         if keys[pygame.K_RIGHT] and self.rect.right < WINDOW_WIDTH:
             self.rect.x += self.speed
         
-        # Update damage flash
         current_time = pygame.time.get_ticks()
+        
+        # Update power-up effects
+        if self.rapid_fire_end and current_time > self.rapid_fire_end:
+            self.shoot_delay = GAME_BALANCE['player']['base_shoot_delay']
+            self.rapid_fire_end = 0
+            log_game_event("PowerUp", "Rapid fire ended")
+            
+        if self.double_points_end and current_time > self.double_points_end:
+            self.points_multiplier = 1
+            self.double_points_end = 0
+            log_game_event("PowerUp", "Double points ended")
+        
+        # Update damage flash
         if self.hit:
             if current_time - self.hit_time > self.hit_duration:
                 self.hit = False
@@ -178,10 +200,9 @@ class Player(pygame.sprite.Sprite):
         
         # Update invulnerability
         if self.invulnerable:
-            # Make the player blink when invulnerable
             self.animation_tick += 1
-            if self.animation_tick % 8 == 0:  # Faster blinking
-                if not self.hit:  # Don't override damage flash
+            if self.animation_tick % VISUAL_SETTINGS['shield_blink_rate'] == 0:
+                if not self.hit:
                     if self.image.get_alpha() == 255 or self.image.get_alpha() is None:
                         self.image.set_alpha(128)
                     else:
@@ -190,7 +211,8 @@ class Player(pygame.sprite.Sprite):
             if current_time - self.invulnerable_timer > self.invulnerable_duration:
                 self.invulnerable = False
                 self.image = self.original_image.copy()
-                self.image.set_alpha(255)  # Restore full opacity
+                self.image.set_alpha(255)
+                log_game_event("PowerUp", "Shield deactivated")
 
     def shoot(self):
         current_time = pygame.time.get_ticks()
@@ -199,62 +221,141 @@ class Player(pygame.sprite.Sprite):
             if shoot_sound:
                 shoot_sound.play()
             
+            bullets = []
             if self.power_level == 1:
-                return [Bullet(self.rect.centerx, self.rect.top)]
+                bullets.append(Bullet(self.rect.centerx, self.rect.top))
             elif self.power_level == 2:
-                return [
+                bullets.extend([
                     Bullet(self.rect.left + 10, self.rect.top),
                     Bullet(self.rect.right - 10, self.rect.top)
-                ]
+                ])
             else:  # power_level == 3
-                return [
+                bullets.extend([
                     Bullet(self.rect.centerx, self.rect.top),
                     Bullet(self.rect.left + 10, self.rect.top),
                     Bullet(self.rect.right - 10, self.rect.top)
-                ]
+                ])
+            
+            log_game_event("Shooting", f"Fired {len(bullets)} bullets")
+            return bullets
         return []
     
     def take_damage(self, amount=1):
         if not self.invulnerable:
             self.health -= amount
-            # Add damage flash
             self.hit = True
             self.hit_time = pygame.time.get_ticks()
             temp_img = self.original_image.copy()
             temp_img.fill(RED, special_flags=pygame.BLEND_RGB_ADD)
             self.image = temp_img
+            log_game_event("Damage", f"Player took {amount} damage. Health: {self.health}")
 
 # Enemy base class
 class Enemy(pygame.sprite.Sprite):
-    def __init__(self):
+    def __init__(self, enemy_type='regular', difficulty=1.0):
         super().__init__()
-        if enemy_img:
+        self.enemy_type = enemy_type
+        self.config = ENEMY_TYPES[enemy_type]
+        
+        # Load appropriate image
+        if enemy_type == 'regular' and enemy_img:
             self.image = enemy_img
+        elif enemy_type == 'fast' and fast_enemy_img:
+            self.image = fast_enemy_img
+        elif enemy_type == 'tank' and tank_enemy_img:
+            self.image = tank_enemy_img
+        elif enemy_type == 'boss' and boss_enemy_img:
+            self.image = boss_enemy_img
         else:
             self.image = pygame.Surface((30, 30))
-            self.image.fill(RED)
+            self.image.fill(self.config['color'])
+        
         self.rect = self.image.get_rect()
-        self.radius = 15  # Collision radius, more accurate than rectangle
+        self.radius = 15
+        
+        # Apply difficulty scaling
+        self.health = int(self.config['health'] * (1 + (difficulty - 1) * DIFFICULTY_SCALING['enemy_health']['increase_rate']))
+        self.max_health = self.health
+        self.speedy = self.config['speed'] * (1 + (difficulty - 1) * DIFFICULTY_SCALING['enemy_speed']['increase_rate'])
+        self.speedx = 0
+        self.points = self.config['points']
+        
+        # Position
         self.rect.x = random.randrange(WINDOW_WIDTH - self.rect.width)
         self.rect.y = random.randrange(-100, -40)
-        self.speedy = random.randrange(1, 4)
-        self.speedx = 0
-        self.health = 1
-        self.points = 10
-        self.shoot_delay = None  # Most enemies don't shoot
+        
+        # Boss-specific attributes
+        if enemy_type == 'boss':
+            self.rect.centerx = WINDOW_WIDTH // 2
+            self.rect.y = -80
+            self.speedx = 2
+            self.movement_pattern = 0
+            self.movement_timer = 0
+            self.last_shot = pygame.time.get_ticks()
+            self.shoot_delay = 2000
+            log_game_event("Enemy", "Boss spawned")
 
     def update(self):
         self.rect.y += self.speedy
         self.rect.x += self.speedx
+        
         # Bouncing off edges logic
         if self.rect.left < 0 and self.speedx < 0:
             self.speedx = -self.speedx
         if self.rect.right > WINDOW_WIDTH and self.speedx > 0:
             self.speedx = -self.speedx
+            
+        # Reset position when off screen
         if self.rect.top > WINDOW_HEIGHT:
-            self.rect.x = random.randrange(WINDOW_WIDTH - self.rect.width)
-            self.rect.y = random.randrange(-100, -40)
-            self.speedy = random.randrange(1, 4)
+            self.reset_position()
+            
+        # Boss-specific movement
+        if self.enemy_type == 'boss':
+            self.update_boss_movement()
+
+    def reset_position(self):
+        """Reset enemy position when it goes off screen."""
+        self.rect.x = random.randrange(WINDOW_WIDTH - self.rect.width)
+        self.rect.y = random.randrange(-100, -40)
+        self.speedy = random.randrange(1, 4)
+        if self.enemy_type == 'fast':
+            self.speedx = random.choice([-2, -1, 0, 1, 2])
+
+    def update_boss_movement(self):
+        """Update boss-specific movement patterns."""
+        self.movement_timer += 1
+        if self.movement_timer > 60:
+            self.movement_pattern = (self.movement_pattern + 1) % 4
+            self.movement_timer = 0
+
+        if self.movement_pattern == 0:
+            self.rect.x += self.speedx
+        elif self.movement_pattern == 1:
+            self.rect.x -= self.speedx
+        elif self.movement_pattern == 2:
+            self.rect.y += 1
+        else:
+            self.rect.y -= 1
+
+        # Keep boss within bounds
+        if self.rect.left < 0:
+            self.rect.left = 0
+            self.speedx = abs(self.speedx)
+        if self.rect.right > WINDOW_WIDTH:
+            self.rect.right = WINDOW_WIDTH
+            self.speedx = -abs(self.speedx)
+        if self.rect.top < 50:
+            self.rect.top = 50
+        if self.rect.bottom > WINDOW_HEIGHT // 2:
+            self.rect.bottom = WINDOW_HEIGHT // 2
+
+    def take_damage(self, amount):
+        """Handle enemy taking damage."""
+        self.health -= amount
+        if self.health <= 0:
+            log_game_event("Enemy", f"{self.enemy_type} enemy destroyed")
+            return True
+        return False
 
 # Fast Enemy
 class FastEnemy(Enemy):
@@ -367,27 +468,30 @@ class PowerUp(pygame.sprite.Sprite):
     def __init__(self, x, y, power_type):
         super().__init__()
         self.power_type = power_type
+        self.config = POWERUP_TYPES[power_type]
+        
         try:
             self.image = pygame.image.load(os.path.join(IMG_DIR, f"{power_type}_powerup.png")).convert_alpha()
             self.image = pygame.transform.scale(self.image, (20, 20))
         except pygame.error:
             self.image = pygame.Surface((20, 20))
-            if power_type == "health":
-                self.image.fill(GREEN)
-            elif power_type == "power":
-                self.image.fill(BLUE)
-            elif power_type == "shield":
-                self.image.fill(YELLOW)
+            self.image.fill(self.config['color'])
         
         self.rect = self.image.get_rect()
         self.radius = 10  # Collision radius
         self.rect.centerx = x
         self.rect.centery = y
         self.speedy = 2
-        # Add a wobble effect
+        
+        # Wobble effect
         self.wobble = 0
         self.wobble_dir = 1
-        self.wobble_speed = random.randint(1, 3) * 0.1
+        self.wobble_speed = random.randint(1, 3) * VISUAL_SETTINGS['powerup_wobble_speed']
+        
+        # Duration for temporary power-ups
+        self.duration = self.config['duration']
+        self.active = False
+        self.start_time = 0
 
     def update(self):
         self.rect.y += self.speedy
@@ -399,6 +503,39 @@ class PowerUp(pygame.sprite.Sprite):
         
         if self.rect.top > WINDOW_HEIGHT:
             self.kill()
+
+    def apply_effect(self, player):
+        """Apply the power-up effect to the player."""
+        if self.power_type == 'health':
+            player.health = min(player.max_health, player.health + self.config['heal_amount'])
+            log_game_event("PowerUp", f"Health restored: {self.config['heal_amount']}")
+            
+        elif self.power_type == 'power':
+            player.power_level = min(GAME_BALANCE['player']['max_power_level'], 
+                                  player.power_level + self.config['power_increase'])
+            log_game_event("PowerUp", f"Power level increased to: {player.power_level}")
+            
+        elif self.power_type == 'shield':
+            player.invulnerable = True
+            player.invulnerable_timer = pygame.time.get_ticks()
+            player.invulnerable_duration = self.config['duration']
+            log_game_event("PowerUp", "Shield activated")
+            
+        elif self.power_type == 'rapid_fire':
+            player.shoot_delay = GAME_BALANCE['player']['base_shoot_delay'] / self.config['fire_rate_multiplier']
+            player.rapid_fire_end = pygame.time.get_ticks() + self.config['duration']
+            log_game_event("PowerUp", "Rapid fire activated")
+            
+        elif self.power_type == 'double_points':
+            player.points_multiplier = self.config['points_multiplier']
+            player.double_points_end = pygame.time.get_ticks() + self.config['duration']
+            log_game_event("PowerUp", "Double points activated")
+
+    def is_active(self):
+        """Check if the power-up is still active."""
+        if not self.active or self.duration == 0:
+            return False
+        return pygame.time.get_ticks() - self.start_time < self.duration
 
 # Bullet
 class Bullet(pygame.sprite.Sprite):

@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.5] - 2025-03-27
+
+### Added
+- Added comprehensive difficulty scaling system
+- Added new power-up types:
+  - Rapid Fire (temporary increased fire rate)
+  - Double Points (temporary score multiplier)
+- Added configuration system for game settings
+- Added dynamic enemy scaling based on difficulty
+- Added boss health scaling with difficulty
+- Added detailed logging for power-up effects
+- Added visual feedback for active power-ups
+
+### Changed
+- Improved power-up system with duration-based effects
+- Enhanced enemy spawning with difficulty-based scaling
+- Refactored enemy classes for better organization
+- Improved boss movement patterns
+- Enhanced power-up visual effects
+- Better balancing of game difficulty progression
+- Improved enemy type distribution
+
+### Fixed
+- Fixed power-up effect stacking issues
+- Fixed difficulty scaling inconsistencies
+- Fixed boss spawn timing issues
+- Fixed enemy health scaling bugs
+- Fixed power-up duration tracking
+
 ## [0.3.4] - 2025-03-27
 
 ### Added
