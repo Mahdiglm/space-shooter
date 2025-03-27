@@ -9,10 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Added comprehensive LICENSE file with MIT License
-- Added detailed asset licensing information
+- Added proper asset licensing and attribution information
 - Added licensing section to README.md
 
 ### Changed
+- Updated asset attribution to correctly reflect OpenGameArt.org sources
+- Improved documentation of third-party asset usage
+- Fixed incorrect asset ownership claims
 - Updated copyright notice in LICENSE file
 - Improved documentation of asset ownership and licensing
 

@@ -94,27 +94,14 @@ python main.py
 
 ## Game Assets
 
-- All graphics are custom-designed for this game
-- Sound effects:
-  - Shooting sounds when firing bullets
-  - Explosion sounds when enemies are destroyed
-  - Power-up collection sounds
-  - Game over sound
-- Background music plays during gameplay
+- Graphics and UI elements are sourced from OpenGameArt.org (CC0 Public Domain)
+- Sound effects and background music are sourced from OpenGameArt.org (CC0 Public Domain)
+- All assets are properly licensed and attributed to their respective sources
 
-## Latest Updates (v0.3.1)
+## Latest Updates (v0.3.2)
 
-- Added pause functionality (Press P to pause/unpause)
-- Added high score tracking
-- Improved collision detection with circular hitboxes
-- Enhanced player movement for better responsiveness 
-- Added boss projectiles for more challenging boss fights
-- Added visual damage feedback when player is hit
-- Enhanced power-up effects with wobble animation
-- Added remaining shield time display
-- Added color-coded health bar
-- Added star background effect when no background image is available
-- Improved game balance and difficulty progression
+- Added proper asset licensing and attribution
+- Updated documentation to reflect correct asset sources
 
 ## Development
 

@@ -22,19 +22,18 @@ SOFTWARE.
 
 ---
 
-## Asset Licenses
+## Asset Licenses and Attributions
 
 ### Images
-- All game sprites and UI elements are created by Mahdi and are licensed under the MIT License
-- Background images are created by Mahdi and are licensed under the MIT License
-- Explosion animations are created by Mahdi and are licensed under the MIT License
+- Game sprites and UI elements are from OpenGameArt.org and are licensed under CC0 (Public Domain)
+- Background images are from OpenGameArt.org and are licensed under CC0 (Public Domain)
+- Explosion animations are from OpenGameArt.org and are licensed under CC0 (Public Domain)
 
 ### Sound Effects
-- All sound effects are created by Mahdi and are licensed under the MIT License
-- Background music is created by Mahdi and is licensed under the MIT License
+- All sound effects are from OpenGameArt.org and are licensed under CC0 (Public Domain)
+- Background music is from OpenGameArt.org and is licensed under CC0 (Public Domain)
 
 ### Fonts
 - The game uses the default Pygame font system
-- Any custom fonts used are created by Mahdi and are licensed under the MIT License
 
-All assets in this project are original works created for this game and are provided under the same MIT License as the code. No third-party assets are used in this project. 
+All third-party assets used in this project are properly licensed and attributed to their respective sources. The game code is licensed under the MIT License, while the assets maintain their original licenses as specified above. 
