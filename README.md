@@ -2,6 +2,21 @@
 
 An optimized 2D space shooter game built with Pygame, featuring performance enhancements using dirty rectangle rendering and spatial partitioning for collision detection.
 
+[![Release Version](https://img.shields.io/badge/release-v0.3.9-blue.svg)](RELEASE_NOTES.md)
+[![Performance Optimized](https://img.shields.io/badge/performance-optimized-green.svg)](ARCHITECTURE.md)
+[![GPL License](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
+
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [📋 **README.md**](README.md) | General overview, features, and installation instructions |
+| [📝 **RELEASE_NOTES.md**](RELEASE_NOTES.md) | Detailed information about the latest release |
+| [🏗️ **ARCHITECTURE.md**](ARCHITECTURE.md) | Technical architecture, performance systems, and extension guides |
+| [❓ **FAQ.md**](FAQ.md) | Frequently asked questions for both players and developers |
+| [🤝 **CONTRIBUTING.md**](CONTRIBUTING.md) | Guidelines for contributing to the project |
+| [📜 **CHANGELOG.md**](CHANGELOG.md) | Detailed history of changes and improvements |
+
 ## Features
 
 - Smooth 60+ FPS gameplay with optimized rendering
@@ -102,17 +117,6 @@ This project is open-source. Feel free to use, modify, and distribute the code.
 - Increased health bar size and visibility
 - Optimized full screen redraw intervals to reduce visual artifacts
 - Created comprehensive RELEASE_NOTES.md with detailed changelog
-
-## Documentation
-
-Space Shooter includes several documentation files to help users and developers:
-
-- **README.md**: General overview, features, and installation instructions
-- **RELEASE_NOTES.md**: Detailed information about the latest release
-- **ARCHITECTURE.md**: Technical architecture, performance systems, and extension guides
-- **FAQ.md**: Frequently asked questions for both players and developers
-- **CONTRIBUTING.md**: Guidelines for contributing to the project
-- **CHANGELOG.md**: Detailed history of changes and improvements
 
 ## Development
 
