@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.4] - 2025-03-27
+
+### Added
+- Added comprehensive error handling system
+- Added logging system with rotating log files
+- Added performance monitoring and logging
+- Added custom exception classes for different error types
+- Added user-friendly error screens
+- Added detailed game event logging
+- Added asset loading error handling
+- Added graceful cleanup on exit
+
+### Changed
+- Refactored main game loop with proper error handling
+- Improved asset loading with better error messages
+- Enhanced collision detection with error handling
+- Added performance metrics for key operations
+- Improved user feedback for errors
+
+### Fixed
+- Fixed potential crashes from missing assets
+- Fixed memory leaks in resource handling
+- Fixed error handling in game state transitions
+- Fixed cleanup issues on game exit
+
 ## [0.3.3] - 2025-03-27
 
 ### Added

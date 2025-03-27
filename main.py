@@ -3,6 +3,9 @@ import random
 import sys
 import math
 import os
+import time
+from game_logger import logger, log_error, log_info, log_game_event, log_performance
+from game_exceptions import *
 
 # Initialize Pygame
 pygame.init()
@@ -578,211 +581,206 @@ try:
 except:
     pass
 
-# Game loop
-running = True
-while running:
-    # Event handling
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
-        elif event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_ESCAPE:
-                running = False
-            elif event.key == pygame.K_p:
-                paused = not paused
-                if paused:
-                    try:
-                        pygame.mixer.music.pause()
-                    except:
-                        pass
-                else:
-                    try:
-                        pygame.mixer.music.unpause()
-                    except:
-                        pass
-            elif event.key == pygame.K_SPACE and not game_over and not paused:
-                new_bullets = player.shoot()
-                for bullet in new_bullets:
-                    all_sprites.add(bullet)
-                    bullets.add(bullet)
-            elif event.key == pygame.K_r and game_over:
-                # Reset game
-                game_over = False
-                score = 0
-                difficulty = 1.0
-                player.health = player.max_health
-                player.power_level = 1
-                player.invulnerable = False
-                player.rect.centerx = WINDOW_WIDTH // 2
-                player.rect.bottom = WINDOW_HEIGHT - 10
-                # Clear and respawn enemies
-                for sprite in all_sprites:
-                    if sprite != player and not isinstance(sprite, Star):
-                        sprite.kill()
-                for i in range(6):
-                    enemy = spawn_enemy()
-                    all_sprites.add(enemy)
-                    enemies.add(enemy)
-                boss_spawned = False
-                boss = None
-                # Restart background music
-                try:
-                    pygame.mixer.music.play(loops=-1)
-                except:
-                    pass
+class Game:
+    def __init__(self):
+        try:
+            pygame.init()
+            pygame.mixer.init()
+            self.screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
+            pygame.display.set_caption("Space Shooter")
+            self.clock = pygame.time.Clock()
+            self.running = True
+            self.paused = False
+            self.load_assets()
+            log_info("Game initialized successfully")
+        except pygame.error as e:
+            log_error(e, "Failed to initialize pygame")
+            raise GameError("Failed to initialize game") from e
+        except Exception as e:
+            log_error(e, "Unexpected error during game initialization")
+            raise
 
-    if paused:
-        show_pause_screen()
-        clock.tick(5)  # Reduce CPU usage while paused
-        continue
+    def load_assets(self):
+        """Load game assets with error handling."""
+        try:
+            start_time = time.time()
+            # Load images
+            self.background = self.load_image('assets/images/background.png')
+            self.player_img = self.load_image('assets/images/player.png')
+            self.bullet_img = self.load_image('assets/images/bullet.png')
+            self.enemy_img = self.load_image('assets/images/enemy.png')
+            
+            # Load sounds
+            self.shoot_sound = self.load_sound('assets/sounds/shoot.wav')
+            self.explosion_sound = self.load_sound('assets/sounds/explosion.wav')
+            
+            load_time = time.time() - start_time
+            log_performance("Asset Loading", load_time)
+            log_info("All assets loaded successfully")
+        except AssetLoadError as e:
+            log_error(e, "Failed to load game assets")
+            raise
+        except Exception as e:
+            log_error(e, "Unexpected error loading assets")
+            raise
 
-    if not game_over:
-        # Update
-        all_sprites.update()
+    def load_image(self, path):
+        """Load an image with error handling."""
+        try:
+            return pygame.image.load(path).convert_alpha()
+        except pygame.error as e:
+            raise AssetLoadError(f"Failed to load image: {path}") from e
+        except FileNotFoundError as e:
+            raise AssetLoadError(f"Image file not found: {path}") from e
 
-        # Increase difficulty over time
-        difficulty += DIFFICULTY_INCREASE_RATE * (1/60)  # 60 FPS
-        difficulty = min(difficulty, 2.5)  # Cap difficulty
+    def load_sound(self, path):
+        """Load a sound with error handling."""
+        try:
+            return pygame.mixer.Sound(path)
+        except pygame.error as e:
+            raise AudioError(f"Failed to load sound: {path}") from e
+        except FileNotFoundError as e:
+            raise AudioError(f"Sound file not found: {path}") from e
 
-        # Spawn boss at certain score
-        if score >= BOSS_SPAWN_SCORE and not boss_spawned:
-            boss = BossEnemy()
-            all_sprites.add(boss)
-            enemies.add(boss)
-            boss_spawned = True
+    def handle_input(self):
+        """Handle user input with error handling."""
+        try:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.running = False
+                    log_info("Game quit by user")
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_p:
+                        self.paused = not self.paused
+                        log_game_event("Game State", "Paused" if self.paused else "Unpaused")
+                    elif event.key == pygame.K_ESCAPE:
+                        self.running = False
+                        log_info("Game quit using ESC key")
+        except Exception as e:
+            log_error(e, "Error handling input")
+            raise InputError("Failed to process user input") from e
 
-        # Handle boss shooting
-        if boss_spawned and boss and boss.rect.top > 0:
-            enemy_shots = boss.shoot()
-            for bullet in enemy_shots:
-                all_sprites.add(bullet)
-                enemy_bullets.add(bullet)
-
-        # Check for bullet-enemy collisions (using better circle collision)
-        hits = pygame.sprite.groupcollide(enemies, bullets, False, True, pygame.sprite.collide_circle)
-        for enemy, bullet_list in hits.items():
-            enemy.health -= len(bullet_list)
-            if enemy.health <= 0:
-                score += enemy.points
-                if score > high_score:
-                    high_score = score
-                if explosion_sound:
-                    explosion_sound.play()
-                # Create explosion
-                explosion = Explosion(enemy.rect.center, max(30, enemy.rect.width))
-                all_sprites.add(explosion)
-                explosions.add(explosion)
-                # Chance to spawn power-up
-                if random.random() < POWERUP_CHANCE:
-                    powerup = spawn_powerup(enemy.rect.centerx, enemy.rect.centery)
-                    all_sprites.add(powerup)
-                    powerups.add(powerup)
+    def update(self):
+        """Update game state with error handling."""
+        try:
+            if not self.paused:
+                start_time = time.time()
                 
-                if isinstance(enemy, BossEnemy):
-                    boss_spawned = False
-                    boss = None
+                # Update game objects
+                self.player.update()
+                self.enemies.update()
+                self.bullets.update()
+                self.powerups.update()
                 
-                enemy.kill()
-                if not boss_spawned:
-                    new_enemy = spawn_enemy()
-                    all_sprites.add(new_enemy)
-                    enemies.add(new_enemy)
+                # Check collisions
+                self.check_collisions()
+                
+                update_time = time.time() - start_time
+                log_performance("Game Update", update_time)
+        except Exception as e:
+            log_error(e, "Error updating game state")
+            raise GameStateError("Failed to update game state") from e
 
-        # Check for player-enemy collisions (using better circle collision)
-        if not player.invulnerable:
-            hits = pygame.sprite.spritecollide(player, enemies, False, pygame.sprite.collide_circle)
-            if hits:
-                player.take_damage()
-                if player.health <= 0:
-                    if game_over_sound:
-                        game_over_sound.play()
-                    # Stop background music
-                    pygame.mixer.music.stop()
-                    game_over = True
-                    # Create player explosion
-                    explosion = Explosion(player.rect.center, 50)
-                    all_sprites.add(explosion)
-                    explosions.add(explosion)
-        
-        # Check for player-enemy bullet collisions
-        if not player.invulnerable:
-            hits = pygame.sprite.spritecollide(player, enemy_bullets, True, pygame.sprite.collide_circle)
-            if hits:
-                player.take_damage(len(hits))
-                if player.health <= 0:
-                    if game_over_sound:
-                        game_over_sound.play()
-                    # Stop background music
-                    pygame.mixer.music.stop()
-                    game_over = True
-                    # Create player explosion
-                    explosion = Explosion(player.rect.center, 50)
-                    all_sprites.add(explosion)
-                    explosions.add(explosion)
+    def check_collisions(self):
+        """Check collisions with error handling."""
+        try:
+            # Bullet-enemy collisions
+            for bullet in self.bullets:
+                hits = pygame.sprite.spritecollide(bullet, self.enemies, True, pygame.sprite.collide_circle)
+                for hit in hits:
+                    self.score += 10
+                    self.explosion_sound.play()
+                    log_game_event("Collision", f"Enemy destroyed at position {hit.rect.center}")
 
-        # Check for power-up collisions
-        hits = pygame.sprite.spritecollide(player, powerups, True, pygame.sprite.collide_circle)
-        for powerup in hits:
-            if powerup_sound:
-                powerup_sound.play()
-            if powerup.power_type == "health":
-                player.health = min(player.max_health, player.health + 20)
-            elif powerup.power_type == "power":
-                player.power_level = min(3, player.power_level + 1)
-            elif powerup.power_type == "shield":
-                player.invulnerable = True
-                player.invulnerable_timer = pygame.time.get_ticks()
+            # Player-enemy collisions
+            hits = pygame.sprite.spritecollide(self.player, self.enemies, True, pygame.sprite.collide_circle)
+            for hit in hits:
+                self.player.health -= 10
+                self.explosion_sound.play()
+                log_game_event("Collision", f"Player hit by enemy. Health: {self.player.health}")
+                
+        except Exception as e:
+            log_error(e, "Error checking collisions")
+            raise CollisionError("Failed to check collisions") from e
 
-        # Draw
-        if background_img:
-            screen.blit(background_img, (0, 0))
-        else:
-            screen.fill(BLACK)
-            all_sprites.draw(screen)
-        
-        # Always draw all sprites if using stars with background
-        if background_img:
-            all_sprites.draw(screen)
-        
-        # Draw UI elements
-        score_text = font.render(f"Score: {score}", True, WHITE)
-        high_score_text = small_font.render(f"High Score: {high_score}", True, YELLOW)
-        power_text = font.render(f"Power: {player.power_level}", True, WHITE)
-        fps_text = small_font.render(f"FPS: {int(clock.get_fps())}", True, WHITE)
-        
-        screen.blit(score_text, (10, 10))
-        screen.blit(high_score_text, (10, 40))
-        draw_health_bar(screen, 10, 70, player.health)
-        screen.blit(power_text, (10, 90))
-        screen.blit(fps_text, (WINDOW_WIDTH - 80, 10))
-        
-        # Draw boss health if boss exists
-        if boss_spawned and boss:
-            boss_health_pct = boss.health / 25.0 * 100
-            boss_text = small_font.render("BOSS", True, YELLOW)
-            screen.blit(boss_text, (WINDOW_WIDTH//2 - boss_text.get_width()//2, 10))
-            draw_health_bar(screen, WINDOW_WIDTH//2 - 50, 30, boss_health_pct)
-        
-        # Draw invulnerability indicator
-        if player.invulnerable:
-            shield_text = font.render("SHIELD ACTIVE!", True, YELLOW)
-            # Draw remaining shield time
-            remaining = max(0, (player.invulnerable_timer + player.invulnerable_duration - pygame.time.get_ticks()) / 1000)
-            time_text = small_font.render(f"{remaining:.1f}s", True, YELLOW)
-            screen.blit(shield_text, (WINDOW_WIDTH - 200, 10))
-            screen.blit(time_text, (WINDOW_WIDTH - 200, 40))
-        
-        # Draw controls hint for new players
-        if score < 50:
-            hint_text = small_font.render("← → to move, SPACE to shoot, P to pause", True, WHITE)
-            screen.blit(hint_text, (WINDOW_WIDTH//2 - hint_text.get_width()//2, WINDOW_HEIGHT - 30))
-        
-        pygame.display.flip()
-    else:
-        show_game_over()
+    def render(self):
+        """Render game state with error handling."""
+        try:
+            start_time = time.time()
+            
+            self.screen.fill((0, 0, 0))
+            self.screen.blit(self.background, (0, 0))
+            
+            self.all_sprites.draw(self.screen)
+            self.draw_ui()
+            
+            pygame.display.flip()
+            
+            render_time = time.time() - start_time
+            log_performance("Game Render", render_time)
+        except Exception as e:
+            log_error(e, "Error rendering game state")
+            raise RenderError("Failed to render game state") from e
 
-    # Cap the framerate
-    clock.tick(60)
+    def run(self):
+        """Main game loop with error handling."""
+        try:
+            log_info("Starting game loop")
+            while self.running:
+                self.clock.tick(60)
+                self.handle_input()
+                self.update()
+                self.render()
+            
+            log_info("Game loop ended normally")
+        except GameError as e:
+            log_error(e, "Game error occurred")
+            self.handle_game_error(e)
+        except Exception as e:
+            log_error(e, "Unexpected error in game loop")
+            self.handle_game_error(e)
+        finally:
+            self.cleanup()
 
-pygame.quit()
-sys.exit()
+    def handle_game_error(self, error):
+        """Handle game errors gracefully."""
+        try:
+            # Display error message to user
+            self.show_error_screen(str(error))
+            # Wait for user acknowledgment
+            self.wait_for_key()
+        except Exception as e:
+            log_error(e, "Error handling game error")
+
+    def cleanup(self):
+        """Clean up resources."""
+        try:
+            pygame.quit()
+            log_info("Game cleaned up successfully")
+        except Exception as e:
+            log_error(e, "Error during cleanup")
+
+    def show_error_screen(self, message):
+        """Display error message to user."""
+        try:
+            self.screen.fill((0, 0, 0))
+            font = pygame.font.Font(None, 36)
+            text = font.render(f"An error occurred: {message}", True, (255, 0, 0))
+            text_rect = text.get_rect(center=(WINDOW_WIDTH/2, WINDOW_HEIGHT/2))
+            self.screen.blit(text, text_rect)
+            pygame.display.flip()
+        except Exception as e:
+            log_error(e, "Error displaying error screen")
+
+    def wait_for_key(self):
+        """Wait for user to press a key."""
+        waiting = True
+        while waiting:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    waiting = False
+                elif event.type == pygame.KEYUP:
+                    waiting = False
+
+game = Game()
+game.run()
