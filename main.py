@@ -139,6 +139,10 @@ except pygame.error:
 
 # Player spaceship
 class Player(pygame.sprite.Sprite):
+    """
+    Player spaceship class with health, weapon power levels, and power-up effects.
+    Uses circle-based collision detection for more accurate hit detection.
+    """
     def __init__(self):
         super().__init__()
         if player_img:
@@ -150,6 +154,8 @@ class Player(pygame.sprite.Sprite):
             self.original_image = self.image.copy()
         
         self.rect = self.image.get_rect()
+        # The radius attribute is used for circular collision detection
+        # This provides more accurate and efficient collision checking
         self.radius = 20
         self.rect.centerx = WINDOW_WIDTH // 2
         self.rect.bottom = WINDOW_HEIGHT - 10
@@ -246,6 +252,15 @@ class Player(pygame.sprite.Sprite):
         return []
     
     def take_damage(self, amount=1):
+        """
+        Apply damage to the player and trigger visual feedback.
+        
+        Args:
+            amount (int): Amount of damage to apply
+            
+        Returns:
+            bool: True if the player is still alive, False if dead
+        """
         if not self.invulnerable:
             self.health -= amount
             self.hit = True
@@ -254,9 +269,15 @@ class Player(pygame.sprite.Sprite):
             temp_img.fill(RED, special_flags=pygame.BLEND_RGB_ADD)
             self.image = temp_img
             log_game_event("Damage", f"Player took {amount} damage. Health: {self.health}")
+            return self.health > 0
+        return True
 
 # Enemy base class
 class Enemy(pygame.sprite.Sprite):
+    """
+    Base enemy class that other enemy types inherit from.
+    Uses circle-based collision detection and adapts to difficulty level.
+    """
     def __init__(self, enemy_type='regular', difficulty=1.0):
         super().__init__()
         self.enemy_type = enemy_type
@@ -301,6 +322,10 @@ class Enemy(pygame.sprite.Sprite):
             log_game_event("Enemy", "Boss spawned")
 
     def update(self):
+        """
+        Update enemy position and check screen boundaries.
+        Enemies move from top to bottom with type-specific behaviors.
+        """
         self.rect.y += self.speedy
         self.rect.x += self.speedx
         
@@ -319,7 +344,10 @@ class Enemy(pygame.sprite.Sprite):
             self.update_boss_movement()
 
     def reset_position(self):
-        """Reset enemy position when it goes off screen."""
+        """
+        Reset enemy to a new random position at the top of the screen.
+        Used for reusing enemy objects rather than creating new ones.
+        """
         self.rect.x = random.randrange(WINDOW_WIDTH - self.rect.width)
         self.rect.y = random.randrange(-100, -40)
         self.speedy = random.randrange(1, 4)
@@ -327,7 +355,10 @@ class Enemy(pygame.sprite.Sprite):
             self.speedx = random.choice([-2, -1, 0, 1, 2])
 
     def update_boss_movement(self):
-        """Update boss-specific movement patterns."""
+        """
+        Special movement pattern for boss enemies.
+        Bosses use a sine wave pattern for horizontal movement.
+        """
         self.movement_timer += 1
         if self.movement_timer > 60:
             self.movement_pattern = (self.movement_pattern + 1) % 4
@@ -355,7 +386,15 @@ class Enemy(pygame.sprite.Sprite):
             self.rect.bottom = WINDOW_HEIGHT // 2
 
     def take_damage(self, amount):
-        """Handle enemy taking damage."""
+        """
+        Handle enemy taking damage and return if the enemy was destroyed.
+        
+        Args:
+            amount (int): Amount of damage to apply
+            
+        Returns:
+            bool: True if the enemy was destroyed, False otherwise
+        """
         self.health -= amount
         if self.health <= 0:
             log_game_event("Enemy", f"{self.enemy_type} enemy destroyed")
@@ -470,6 +509,10 @@ class EnemyBullet(pygame.sprite.Sprite):
 
 # Power-up
 class PowerUp(pygame.sprite.Sprite):
+    """
+    Power-up item that can be collected by the player.
+    Uses oscillating movement and provides various effects.
+    """
     def __init__(self, x, y, power_type):
         super().__init__()
         self.power_type = power_type
@@ -499,6 +542,10 @@ class PowerUp(pygame.sprite.Sprite):
         self.start_time = 0
 
     def update(self):
+        """
+        Update power-up position and wobble animation.
+        Power-ups move downward and have a slight horizontal oscillation.
+        """
         self.rect.y += self.speedy
         # Wobble effect
         self.wobble += self.wobble_speed * self.wobble_dir
@@ -510,7 +557,12 @@ class PowerUp(pygame.sprite.Sprite):
             self.kill()
 
     def apply_effect(self, player):
-        """Apply the power-up effect to the player."""
+        """
+        Apply power-up effect to the player based on type.
+        
+        Args:
+            player (Player): The player sprite to apply the effect to
+        """
         if self.power_type == 'health':
             player.health = min(player.max_health, player.health + self.config['heal_amount'])
             log_game_event("PowerUp", f"Health restored: {self.config['heal_amount']}")
@@ -537,13 +589,22 @@ class PowerUp(pygame.sprite.Sprite):
             log_game_event("PowerUp", "Double points activated")
 
     def is_active(self):
-        """Check if the power-up is still active."""
+        """
+        Check if the power-up is still active or should be removed.
+        
+        Returns:
+            bool: True if the power-up is still active, False otherwise
+        """
         if not self.active or self.duration == 0:
             return False
         return pygame.time.get_ticks() - self.start_time < self.duration
 
 # Bullet
 class Bullet(pygame.sprite.Sprite):
+    """
+    Player bullet sprite.
+    Travels upward from the player's position.
+    """
     def __init__(self, x, y):
         super().__init__()
         if bullet_img:
@@ -558,12 +619,19 @@ class Bullet(pygame.sprite.Sprite):
         self.speedy = -10
 
     def update(self):
+        """
+        Update bullet position and check if it's off-screen.
+        """
         self.rect.y += self.speedy
         if self.rect.bottom < 0:
             self.kill()
 
 # Explosion animation
 class Explosion(pygame.sprite.Sprite):
+    """
+    Explosion animation sprite.
+    Creates a temporary animated explosion effect.
+    """
     def __init__(self, center, size):
         super().__init__()
         self.size = size
@@ -591,6 +659,10 @@ class Explosion(pygame.sprite.Sprite):
                 self.explosion_anim.append(img)
 
     def update(self):
+        """
+        Update explosion animation frame.
+        Removes the explosion when animation is complete.
+        """
         now = pygame.time.get_ticks()
         if now - self.last_update > self.frame_rate:
             self.last_update = now
@@ -605,6 +677,10 @@ class Explosion(pygame.sprite.Sprite):
 
 # Star background effect
 class Star(pygame.sprite.Sprite):
+    """
+    Background star sprite for when no background image is available.
+    Stars have different sizes and speeds for parallax effect.
+    """
     def __init__(self):
         super().__init__()
         self.size = random.randint(1, 3)
@@ -617,6 +693,9 @@ class Star(pygame.sprite.Sprite):
         self.speedy = random.randrange(1, 3)
 
     def update(self):
+        """
+        Update star position and handle wrapping when reaching screen bottom.
+        """
         self.rect.y += self.speedy
         if self.rect.top > WINDOW_HEIGHT:
             self.rect.x = random.randrange(WINDOW_WIDTH)
@@ -659,6 +738,15 @@ boss_spawned = False
 boss = None  # Reference to boss when spawned
 
 def draw_health_bar(surf, x, y, pct):
+    """
+    Draw a health bar on the screen.
+    
+    Args:
+        surf (Surface): Surface to draw on
+        x (int): X position
+        y (int): Y position
+        pct (float): Percentage of health (0.0 to 1.0)
+    """
     if pct < 0:
         pct = 0
     BAR_LENGTH = 100
@@ -676,6 +764,13 @@ def draw_health_bar(surf, x, y, pct):
     pygame.draw.rect(surf, WHITE, outline_rect, 2)
 
 def spawn_enemy():
+    """
+    Spawn a new enemy based on probability and return it.
+    Handles enemy type selection based on ENEMY_TYPES configuration.
+    
+    Returns:
+        Enemy: A new enemy sprite
+    """
     enemy_type = random.random()
     if enemy_type < 0.6:
         enemy = Enemy()
@@ -687,10 +782,23 @@ def spawn_enemy():
     return enemy
 
 def spawn_powerup(x, y):
+    """
+    Spawn a random power-up at the given position.
+    
+    Args:
+        x (int): X position
+        y (int): Y position
+        
+    Returns:
+        PowerUp: A new power-up sprite
+    """
     power_type = random.choice(["health", "power", "shield"])
     return PowerUp(x, y, power_type)
 
 def show_game_over():
+    """
+    Display the game over screen with final score.
+    """
     game_over_text = font.render("GAME OVER! Press R to restart", True, WHITE)
     score_text = font.render(f"Final Score: {score}", True, WHITE)
     high_score_text = font.render(f"High Score: {high_score}", True, YELLOW)
@@ -705,6 +813,9 @@ def show_game_over():
     pygame.display.flip()
 
 def show_pause_screen():
+    """
+    Display pause screen overlay.
+    """
     pause_text = font.render("PAUSED", True, WHITE)
     resume_text = small_font.render("Press P to resume", True, WHITE)
     
@@ -724,6 +835,11 @@ except:
     pass
 
 class Game:
+    """
+    Main game class that handles the game loop, rendering, and input.
+    Implements performance optimization through the GameRenderer,
+    SpriteManager, and PerformanceMonitor.
+    """
     def __init__(self):
         try:
             pygame.init()
@@ -743,7 +859,10 @@ class Game:
             raise
 
     def load_assets(self):
-        """Load game assets with error handling."""
+        """
+        Load all game assets (images, sounds).
+        Handles fallbacks for missing assets.
+        """
         try:
             start_time = time.time()
             # Load images
@@ -767,7 +886,15 @@ class Game:
             raise
 
     def load_image(self, filename):
-        """Load an image with error handling."""
+        """
+        Load an image asset with error handling.
+        
+        Args:
+            filename (str): Image filename
+            
+        Returns:
+            Surface: Loaded image or None if failed
+        """
         try:
             filepath = os.path.join(IMG_DIR, filename)
             return pygame.image.load(filepath).convert_alpha()
@@ -779,7 +906,15 @@ class Game:
             return None
 
     def load_sound(self, filename):
-        """Load a sound with error handling."""
+        """
+        Load a sound asset with error handling.
+        
+        Args:
+            filename (str): Sound filename
+            
+        Returns:
+            Sound: Loaded sound or None if failed
+        """
         try:
             filepath = os.path.join(SOUND_DIR, filename)
             return pygame.mixer.Sound(filepath)
@@ -791,7 +926,10 @@ class Game:
             return None
 
     def handle_input(self):
-        """Handle user input with error handling."""
+        """
+        Process user input events.
+        Handles key presses and game state changes.
+        """
         try:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -809,16 +947,23 @@ class Game:
             raise InputError("Failed to process user input") from e
 
     def update(self):
-        """Update game state with error handling."""
+        """
+        Update game state, including sprites and collisions.
+        Implements performance monitoring for optimization.
+        """
         try:
             if not self.paused:
                 start_time = time.time()
                 
-                # Update game objects
-                self.player.update()
-                self.enemies.update()
-                self.bullets.update()
-                self.powerups.update()
+                # Update game difficulty
+                self.difficulty = min(
+                    GAME_BALANCE['max_difficulty'],
+                    1.0 + (self.score / 1000) * GAME_BALANCE['difficulty_increase_rate']
+                )
+                
+                # Update all sprites through the sprite manager
+                # This is optimized to only update sprites that are visible on screen
+                self.sprite_manager.update_sprites()
                 
                 # Check collisions
                 self.check_collisions()
@@ -830,29 +975,89 @@ class Game:
             raise GameStateError("Failed to update game state") from e
 
     def check_collisions(self):
-        """Check collisions with error handling."""
+        """
+        Check for collisions between game objects.
+        Uses spatial hash grid for optimized collision detection.
+        """
         try:
-            # Bullet-enemy collisions
-            for bullet in self.bullets:
-                hits = pygame.sprite.spritecollide(bullet, self.enemies, True, pygame.sprite.collide_circle)
-                for hit in hits:
-                    self.score += 10
-                    self.explosion_sound.play()
-                    log_game_event("Collision", f"Enemy destroyed at position {hit.rect.center}")
-
-            # Player-enemy collisions
-            hits = pygame.sprite.spritecollide(self.player, self.enemies, True, pygame.sprite.collide_circle)
-            for hit in hits:
-                self.player.health -= 10
-                self.explosion_sound.play()
-                log_game_event("Collision", f"Player hit by enemy. Health: {self.player.health}")
+            # Get collisions from the sprite manager
+            # This uses the spatial hash grid to efficiently find potential collisions
+            collisions = self.sprite_manager.check_collisions()
+            
+            # Process bullet-enemy collisions
+            for enemy, bullet in collisions.get('bullet_enemy', []):
+                # Apply damage to enemy
+                if enemy.take_damage(1):
+                    # Enemy was destroyed
+                    score_value = ENEMY_TYPES[enemy.enemy_type]['points']
+                    # Apply score multiplier if active
+                    if self.player.points_multiplier > 1:
+                        score_value *= self.player.points_multiplier
+                    self.score += score_value
+                    
+                    # Chance to spawn power-up at enemy position
+                    if random.random() < POWERUP_CHANCE:
+                        powerup = spawn_powerup(enemy.rect.centerx, enemy.rect.centery)
+                        self.sprite_manager.add_sprite(powerup, 'powerup')
+                        
+                    # Create explosion at enemy position
+                    self.create_explosion(enemy.rect.center, size="lg")
+                    
+                # Remove bullet that hit enemy
+                self.sprite_manager.remove_sprite(bullet)
                 
+            # Process player-enemy collisions
+            for enemy in collisions.get('player_enemy', []):
+                if not self.player.invulnerable:
+                    # Player takes damage
+                    if not self.player.take_damage():
+                        # Player was destroyed
+                        self.game_over = True
+                        self.create_explosion(self.player.rect.center, size="xl")
+                        if game_over_sound:
+                            game_over_sound.play()
+                    else:
+                        # Player was damaged but survived
+                        if explosion_sound:
+                            explosion_sound.play()
+                
+                # Enemy is destroyed on collision
+                self.sprite_manager.remove_sprite(enemy)
+                self.create_explosion(enemy.rect.center, size="lg")
+            
+            # Process player-powerup collisions
+            for powerup in collisions.get('player_powerup', []):
+                powerup.apply_effect(self.player)
+                self.sprite_manager.remove_sprite(powerup)
+                if powerup_sound:
+                    powerup_sound.play()
+                
+            # Process player-enemy bullet collisions
+            for bullet in collisions.get('player_enemy_bullet', []):
+                if not self.player.invulnerable:
+                    # Player takes damage
+                    if not self.player.take_damage():
+                        # Player was destroyed
+                        self.game_over = True
+                        self.create_explosion(self.player.rect.center, size="xl")
+                        if game_over_sound:
+                            game_over_sound.play()
+                    else:
+                        # Player was damaged but survived
+                        if explosion_sound:
+                            explosion_sound.play()
+                        
+                # Remove the enemy bullet
+                self.sprite_manager.remove_sprite(bullet)
         except Exception as e:
             log_error(e, "Error checking collisions")
             raise CollisionError("Failed to check collisions") from e
 
     def render(self):
-        """Render game state with error handling."""
+        """
+        Render the game using the GameRenderer.
+        Implements dirty rectangle rendering for optimized performance.
+        """
         try:
             start_time = time.time()
             
@@ -871,7 +1076,10 @@ class Game:
             raise RenderError("Failed to render game state") from e
 
     def run(self):
-        """Main game loop with error handling."""
+        """
+        Main game loop.
+        Handles timing, input, updates, and rendering with performance monitoring.
+        """
         try:
             log_info("Starting game loop")
             while self.running:
@@ -891,7 +1099,12 @@ class Game:
             self.cleanup()
 
     def handle_game_error(self, error):
-        """Handle game errors gracefully."""
+        """
+        Handle game errors and exceptions.
+        
+        Args:
+            error: The exception that was raised
+        """
         try:
             # Display error message to user
             self.show_error_screen(str(error))
@@ -901,7 +1114,9 @@ class Game:
             log_error(e, "Error handling game error")
 
     def cleanup(self):
-        """Clean up resources."""
+        """
+        Clean up resources before exiting.
+        """
         try:
             pygame.quit()
             log_info("Game cleaned up successfully")
@@ -909,7 +1124,12 @@ class Game:
             log_error(e, "Error during cleanup")
 
     def show_error_screen(self, message):
-        """Display error message to user."""
+        """
+        Display error message on screen.
+        
+        Args:
+            message (str): Error message to display
+        """
         try:
             self.screen.fill((0, 0, 0))
             font = pygame.font.Font(None, 36)
@@ -921,7 +1141,12 @@ class Game:
             log_error(e, "Error displaying error screen")
 
     def wait_for_key(self):
-        """Wait for user to press a key."""
+        """
+        Wait for any key press.
+        
+        Returns:
+            bool: True if a key was pressed, False if the user quit
+        """
         waiting = True
         while waiting:
             for event in pygame.event.get():

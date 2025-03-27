@@ -1,0 +1,30 @@
+2025-03-27 21:57:29,562 - ERROR - game_logger - log_error - Unexpected error loading assets - name 'log_warning' is not defined
+Traceback (most recent call last):
+  File "c:\Users\MXDI\Desktop\mineser\main.py", line 785, in load_sound
+    return pygame.mixer.Sound(filepath)
+pygame.error: Unrecognized audio format
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "c:\Users\MXDI\Desktop\mineser\main.py", line 756, in load_assets
+    self.shoot_sound = self.load_sound('shoot.wav')
+  File "c:\Users\MXDI\Desktop\mineser\main.py", line 787, in load_sound
+    log_warning(f"Could not load sound: {filename}")
+NameError: name 'log_warning' is not defined
+2025-03-27 21:57:29,562 - ERROR - game_logger - log_error - Unexpected error during game initialization - name 'log_warning' is not defined
+Traceback (most recent call last):
+  File "c:\Users\MXDI\Desktop\mineser\main.py", line 785, in load_sound
+    return pygame.mixer.Sound(filepath)
+pygame.error: Unrecognized audio format
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "c:\Users\MXDI\Desktop\mineser\main.py", line 736, in __init__
+    self.load_assets()
+  File "c:\Users\MXDI\Desktop\mineser\main.py", line 756, in load_assets
+    self.shoot_sound = self.load_sound('shoot.wav')
+  File "c:\Users\MXDI\Desktop\mineser\main.py", line 787, in load_sound
+    log_warning(f"Could not load sound: {filename}")
+NameError: name 'log_warning' is not defined

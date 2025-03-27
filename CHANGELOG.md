@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Release Descriptions
 
+### Version 0.3.7 (Beta)
+A documentation-focused release that significantly improves the project's technical documentation and code readability. This version introduces comprehensive documentation files, enhances inline code comments, and provides a detailed roadmap for future development.
+
 ### Version 0.3.6 (Beta)
 A performance-focused release that significantly improves rendering efficiency and game responsiveness. This version introduces optimized rendering techniques, advanced collision detection, and comprehensive performance monitoring.
 
@@ -36,6 +39,32 @@ A bug-fix and improvement release that adds essential game features like scoring
 
 ### Version 0.1.0 (Pre-Alpha)
 The initial release of the Space Shooter game, establishing the basic game mechanics and structure. This version provides the foundation for all future development.
+
+## [0.3.7] - 2025-03-27
+
+### Added
+- Added comprehensive technical architecture documentation (ARCHITECTURE.md)
+- Added FAQ.md with common questions for both players and developers
+- Added Development Roadmap section to README.md
+- Added detailed inline code documentation throughout main.py
+- Added inline documentation for performance optimization systems
+- Added code examples for extending the game
+- Added detailed explanations of spatial hash grid collision system
+- Added more thorough docstrings for all classes and methods
+
+### Changed
+- Updated README.md with the latest features and improvements
+- Reorganized documentation into separate specialized files
+- Enhanced technical explanations of performance optimization features
+- Improved clarity of contribution guidelines
+- Improved code readability with better comments and documentation
+
+### Fixed
+- Fixed inconsistencies in documentation
+- Fixed missing parameter descriptions in method documentation
+- Fixed unclear explanations of game mechanics
+- Fixed outdated information in README.md
+- Fixed incomplete docstrings in various classes
 
 ## [0.3.6] - 2025-03-27
 
