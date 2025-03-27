@@ -1,22 +1,27 @@
 # Space Shooter Game
 
-A challenging 2D space shooter game built with Python and Pygame. Control your spaceship, shoot enemies, collect power-ups, and try to survive as long as possible!
+A visually stunning and highly immersive 2D space shooter game built with Python and Pygame. Control your spaceship, shoot enemies, collect power-ups, and try to survive as long as possible!
 
 *Last updated: March 27, 2025*
 
+![Space Shooter Game](assets/images/background.jpg)
+
 ## Features
 
-- Smooth spaceship controls
-- Multiple enemy types with unique behaviors
-- Power-up system with three types of upgrades
-- Progressive difficulty system
-- Boss battles
-- Weapon power levels
-- Health and shield system
+- Smooth spaceship controls with responsive gameplay
+- Rich audiovisual experience with custom graphics and sound effects
+- Multiple enemy types with unique behaviors and visuals
+- Power-up system with three types of upgrades and visual effects
+- Progressive difficulty system that keeps the challenge fresh
+- Boss battles with unique attack patterns
+- Weapon power levels with visual feedback
+- Health and shield system with animations
 - Scoring system with different point values
-- 60 FPS gameplay
+- 60 FPS gameplay with optimized rendering
 - Game over screen with restart option
-- On-screen display for score, health, and power level
+- Immersive background music and sound effects
+- Dynamic explosion animations
+- Visual health bar and power indicators
 
 ## Installation
 
@@ -79,6 +84,16 @@ python main.py
 - Boss appears at 1000 points
 - Try to achieve the highest score possible!
 
+## Game Assets
+
+- All graphics are custom-designed for this game
+- Sound effects:
+  - Shooting sounds when firing bullets
+  - Explosion sounds when enemies are destroyed
+  - Power-up collection sounds
+  - Game over sound
+- Background music plays during gameplay
+
 ## Development
 
 This project is open source and welcomes contributions! Please check out our [Contributing Guidelines](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
@@ -90,4 +105,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## Acknowledgments
 
 - Built with [Pygame](https://www.pygame.org/)
+- Sound effects from [SoundJay](https://www.soundjay.com/)
 - Inspired by classic space shooter games 

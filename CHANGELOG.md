@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2025-03-27
+
+### Added
+- Complete audiovisual overhaul:
+  - Sprite graphics for player, enemies, and power-ups
+  - Background image for enhanced visual appeal
+  - Explosion animations when enemies and player are destroyed
+  - Sound effects for:
+    - Shooting
+    - Explosions
+    - Power-up collection
+    - Game over
+  - Background music for immersive gameplay
+- Visual health bar instead of text
+- Player shield visualization with blinking effect
+- Improved game menu and HUD (Heads Up Display)
+- Automatic resource loading with fallbacks for missing assets
+
+### Changed
+- Improved player feedback with visual and audio cues
+- Enhanced explosion animations
+- Better visual representation of power-ups
+- More responsive controls and gameplay
+- Restructured game assets to support better organization
+
+### Fixed
+- Asset loading with proper error handling
+- Visual bug with powerup collection
+- Animation timing and frame rate issues
+- Rendering optimizations for smoother gameplay
+
 ## [0.2.0] - 2025-03-27
 
 ### Added
