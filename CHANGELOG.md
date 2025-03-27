@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Release Descriptions
+
+### Version 0.3.5 (Beta)
+A major enhancement to game balance and progression, introducing a sophisticated difficulty scaling system and expanded power-up mechanics. This version focuses on making the game more engaging and challenging while maintaining fair play.
+
+### Version 0.3.4 (Beta)
+A technical improvement release focusing on stability and error handling. This version introduces comprehensive logging and error management systems to make the game more robust and easier to debug.
+
+### Version 0.3.3 (Beta)
+A community-focused release that improves project documentation and contribution guidelines. This version makes the project more accessible to potential contributors and establishes clear standards for development.
+
+### Version 0.3.2 (Beta)
+A legal and documentation update that properly addresses asset licensing and attribution. This version ensures all game assets are properly credited and licensed according to their sources.
+
+### Version 0.3.1 (Beta)
+A quality-of-life improvement release that enhances the player experience with new features and better feedback systems. This version focuses on making the game more user-friendly and responsive.
+
+### Version 0.3.0 (Alpha)
+A major visual and audio overhaul that transforms the game's presentation. This version introduces proper graphics, sound effects, and music to create a more immersive gaming experience.
+
+### Version 0.2.0 (Alpha)
+A significant gameplay expansion that introduces multiple enemy types, power-ups, and a progressive difficulty system. This version transforms the basic game into a more complex and engaging experience.
+
+### Version 0.1.1 (Alpha)
+A bug-fix and improvement release that adds essential game features like scoring and health systems. This version focuses on making the game more complete and playable.
+
+### Version 0.1.0 (Alpha)
+The initial release of the Space Shooter game, establishing the basic game mechanics and structure. This version provides the foundation for all future development.
+
 ## [0.3.5] - 2025-03-27
 
 ### Added
