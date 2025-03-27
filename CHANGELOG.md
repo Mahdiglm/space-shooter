@@ -31,7 +31,7 @@ A significant gameplay expansion that introduces multiple enemy types, power-ups
 ### Version 0.1.1 (Alpha)
 A bug-fix and improvement release that adds essential game features like scoring and health systems. This version focuses on making the game more complete and playable.
 
-### Version 0.1.0 (Alpha)
+### Version 0.1.0 (Pre-Alpha)
 The initial release of the Space Shooter game, establishing the basic game mechanics and structure. This version provides the foundation for all future development.
 
 ## [0.3.5] - 2025-03-27
