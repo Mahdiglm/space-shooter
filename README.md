@@ -124,6 +124,9 @@ This project is open source and welcomes contributions! Please check out our [Co
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
+### Asset Licensing
+All game assets (images, sounds, and fonts) are original works created for this project and are licensed under the MIT License. No third-party assets are used in this game.
+
 ## Acknowledgments
 
 - Built with [Pygame](https://www.pygame.org/)
