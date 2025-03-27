@@ -11,12 +11,16 @@ A simple 2D space shooter game built with Python and Pygame. Control your spaces
 - Bullet shooting mechanics
 - Collision detection
 - 60 FPS gameplay
+- Scoring system
+- Health system
+- Game over screen with restart option
+- On-screen display for score and health
 
 ## Installation
 
 1. Clone this repository:
 ```bash
-git clone https://github.com/yourusername/space-shooter.git
+git clone https://github.com/Mahdiglm/space-shooter.git
 cd space-shooter
 ```
 
@@ -36,11 +40,18 @@ python main.py
 - LEFT ARROW: Move spaceship left
 - RIGHT ARROW: Move spaceship right
 - SPACEBAR: Shoot bullets
+- R: Restart game after game over
 
 3. Objective:
-- Shoot the red enemy ships
+- Shoot the red enemy ships to score points
 - Avoid collisions with enemies
 - Try to survive as long as possible
+- Each hit from an enemy reduces your health
+- Game ends when health reaches zero
+
+4. Scoring:
+- Each enemy destroyed: 10 points
+- Try to achieve the highest score possible!
 
 ## Development
 
