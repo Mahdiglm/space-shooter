@@ -4,8 +4,13 @@ import sys
 import math
 import os
 import time
+from collections import defaultdict
+from game_renderer import GameRenderer
+from performance_monitor import PerformanceMonitor
+from sprite_manager import SpriteManager
 from game_logger import logger, log_error, log_info, log_game_event, log_performance
 from game_exceptions import *
+from game_config import *
 
 # Initialize Pygame
 pygame.init()
@@ -742,14 +747,14 @@ class Game:
         try:
             start_time = time.time()
             # Load images
-            self.background = self.load_image('assets/images/background.png')
-            self.player_img = self.load_image('assets/images/player.png')
-            self.bullet_img = self.load_image('assets/images/bullet.png')
-            self.enemy_img = self.load_image('assets/images/enemy.png')
+            self.background_img = self.load_image('background.jpg')
+            self.player_img = self.load_image('player.png')
+            self.bullet_img = self.load_image('bullet.png')
+            self.enemy_img = self.load_image('enemy.png')
             
             # Load sounds
-            self.shoot_sound = self.load_sound('assets/sounds/shoot.wav')
-            self.explosion_sound = self.load_sound('assets/sounds/explosion.wav')
+            self.shoot_sound = self.load_sound('shoot.wav')
+            self.explosion_sound = self.load_sound('explosion.wav')
             
             load_time = time.time() - start_time
             log_performance("Asset Loading", load_time)
@@ -761,23 +766,29 @@ class Game:
             log_error(e, "Unexpected error loading assets")
             raise
 
-    def load_image(self, path):
+    def load_image(self, filename):
         """Load an image with error handling."""
         try:
-            return pygame.image.load(path).convert_alpha()
+            filepath = os.path.join(IMG_DIR, filename)
+            return pygame.image.load(filepath).convert_alpha()
         except pygame.error as e:
-            raise AssetLoadError(f"Failed to load image: {path}") from e
+            log_warning(f"Could not load image: {filename}")
+            return None
         except FileNotFoundError as e:
-            raise AssetLoadError(f"Image file not found: {path}") from e
+            log_warning(f"Image file not found: {filename}")
+            return None
 
-    def load_sound(self, path):
+    def load_sound(self, filename):
         """Load a sound with error handling."""
         try:
-            return pygame.mixer.Sound(path)
-        except pygame.error as e:
-            raise AudioError(f"Failed to load sound: {path}") from e
-        except FileNotFoundError as e:
-            raise AudioError(f"Sound file not found: {path}") from e
+            filepath = os.path.join(SOUND_DIR, filename)
+            return pygame.mixer.Sound(filepath)
+        except pygame.error:
+            log_warning(f"Could not load sound: {filename}")
+            return None
+        except FileNotFoundError:
+            log_warning(f"Sound file not found: {filename}")
+            return None
 
     def handle_input(self):
         """Handle user input with error handling."""
@@ -846,7 +857,7 @@ class Game:
             start_time = time.time()
             
             self.screen.fill((0, 0, 0))
-            self.screen.blit(self.background, (0, 0))
+            self.screen.blit(self.background_img, (0, 0))
             
             self.all_sprites.draw(self.screen)
             self.draw_ui()

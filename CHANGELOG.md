@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Release Descriptions
 
+### Version 0.3.6 (Beta)
+A performance-focused release that significantly improves rendering efficiency and game responsiveness. This version introduces optimized rendering techniques, advanced collision detection, and comprehensive performance monitoring.
+
 ### Version 0.3.5 (Beta)
 A major enhancement to game balance and progression, introducing a sophisticated difficulty scaling system and expanded power-up mechanics. This version focuses on making the game more engaging and challenging while maintaining fair play.
 
@@ -33,6 +36,32 @@ A bug-fix and improvement release that adds essential game features like scoring
 
 ### Version 0.1.0 (Pre-Alpha)
 The initial release of the Space Shooter game, establishing the basic game mechanics and structure. This version provides the foundation for all future development.
+
+## [0.3.6] - 2025-03-27
+
+### Added
+- Added optimized dirty rectangle rendering system
+- Added spatial hash grid for efficient collision detection
+- Added comprehensive performance monitoring and metrics
+- Added real-time performance visualization (toggle with 'M' key)
+- Added sprite visibility tracking for optimization
+- Added detailed performance logging
+
+### Changed
+- Completely refactored rendering system for optimal performance
+- Improved collision detection with spatial partitioning
+- Optimized game loop with selective updates and rendering
+- Enhanced sprite management system
+- Reduced CPU and GPU load significantly
+- Improved frame rate stability
+- Optimized asset loading process
+
+### Fixed
+- Fixed performance bottlenecks in rendering
+- Fixed collision detection inefficiencies
+- Fixed memory leaks in sprite management
+- Fixed rendering artifacts during high sprite count scenarios
+- Fixed performance degradation during intense gameplay
 
 ## [0.3.5] - 2025-03-27
 
