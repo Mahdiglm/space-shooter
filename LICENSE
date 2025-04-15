@@ -1,6 +1,6 @@
 MIT License
 
-Copyright (c) 2023 Space Shooter Development Team
+Copyright (c) 2025 Mahdiglm
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -25,15 +25,18 @@ SOFTWARE.
 ## Asset Licenses and Attributions
 
 ### Images
+
 - Game sprites and UI elements are from OpenGameArt.org and are licensed under CC0 (Public Domain)
 - Background images are from OpenGameArt.org and are licensed under CC0 (Public Domain)
 - Explosion animations are from OpenGameArt.org and are licensed under CC0 (Public Domain)
 
 ### Sound Effects
+
 - All sound effects are from OpenGameArt.org and are licensed under CC0 (Public Domain)
 - Background music is from OpenGameArt.org and is licensed under CC0 (Public Domain)
 
 ### Fonts
+
 - The game uses the default Pygame font system
 
-All third-party assets used in this project are properly licensed and attributed to their respective sources. The game code is licensed under the MIT License, while the assets maintain their original licenses as specified above. 
+All third-party assets used in this project are properly licensed and attributed to their respective sources. The game code is licensed under the MIT License, while the assets maintain their original licenses as specified above.
