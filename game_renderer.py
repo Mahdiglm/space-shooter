@@ -36,6 +36,11 @@ class GameRenderer:
         self.allow_skipping = True
         self.skip_threshold = 1/120  # Skip if behind by 8.33ms (120fps target)
         
+        # Sprite batching system
+        self.batch_enabled = True
+        self.min_batch_size = 5  # Minimum sprites for batch to be worthwhile
+        self.sprite_batches = {}  # Dictionary to store batches by image ID
+        
         # Surface caching
         self.text_surfaces = {}
         self.effect_surfaces = {}
@@ -43,6 +48,7 @@ class GameRenderer:
         # Debug flags
         self.show_dirty_rects = False
         self.show_performance = False
+        self.show_batch_stats = False
         
         # Last full redraw time
         self.last_full_redraw = 0
@@ -53,7 +59,15 @@ class GameRenderer:
         self.background_buffer = pygame.Surface((screen_width, screen_height))
         self.background_buffer.fill(background_color)
         
-        log_info("GameRenderer initialized with resolution {}x{}".format(screen_width, screen_height))
+        # Performance metrics for batching
+        self.batch_stats = {
+            "batches_created": 0,
+            "sprites_batched": 0,
+            "draw_calls_saved": 0
+        }
+        
+        log_info("GameRenderer initialized with resolution {}x{} with sprite batching enabled".format(
+            screen_width, screen_height))
 
     def set_background_image(self, surface):
         """Set the background directly from an already loaded surface."""
@@ -113,7 +127,7 @@ class GameRenderer:
                     self.dirty_rects.append(padded_rect)
 
     def draw_sprites(self, sprites):
-        """Draw sprites efficiently using dirty rectangle technique."""
+        """Draw sprites efficiently using dirty rectangle technique and sprite batching."""
         # Performance monitoring
         if self.performance_monitor:
             self.performance_monitor.start_section("render")
@@ -151,11 +165,21 @@ class GameRenderer:
             # Partial redraw - just update dirty areas
             self.clear_previous(sprites)
         
+        # Reset batch statistics for this frame
+        if self.show_batch_stats:
+            frame_batches = 0
+            frame_batched_sprites = 0
+            frame_draw_calls_saved = 0
+
         # Cull sprites outside viewport (optimization)
         visible_sprites = []
         screen_rect = pygame.Rect(0, 0, self.screen_width, self.screen_height)
         
-        # Batch processing of sprites for better performance
+        # Organize sprites into batches based on their image
+        batches = {}
+        non_batchable = []
+        
+        # First pass: organize sprites into potential batches by image id
         batch_counter = 0
         batch_limit = min(len(sprites), self.max_batch_size)
         
@@ -181,7 +205,7 @@ class GameRenderer:
                     break
                     
             batch_counter += 1
-                
+            
             # Store previous position for next frame's cleanup
             if not hasattr(sprite, 'prev_rect') or sprite.prev_rect is None:
                 sprite.prev_rect = pygame.Rect(sprite.rect)
@@ -190,47 +214,130 @@ class GameRenderer:
                 sprite.prev_rect.y = sprite.rect.y
                 sprite.prev_rect.width = sprite.rect.width
                 sprite.prev_rect.height = sprite.rect.height
-                
-            # Only draw if visible (intersects with screen)
-            if sprite.rect.colliderect(screen_rect):
-                # Draw the sprite
-                if hasattr(sprite, 'image') and sprite.image is not None:
-                    self.screen.blit(sprite.image, sprite.rect)
-                    # Add to dirty rectangles for updating - with a small padding
-                    padded_rect = pygame.Rect(sprite.rect).inflate(2, 2)
-                    self.dirty_rects.append(padded_rect)
-                    visible_sprites.append(sprite)
-
-        # Update only the dirty portions of the screen
-        if self.dirty_rects:
-            # Merge overlapping rectangles to reduce update calls
-            optimized_rects = self._optimize_rects(self.dirty_rects)
-            pygame.display.update(optimized_rects)
-            self.rect_count += len(optimized_rects)
             
-            # Visualize dirty rects if debug enabled
-            if self.show_dirty_rects:
-                for rect in optimized_rects:
-                    pygame.draw.rect(self.screen, (255, 0, 0), rect, 1)
-                pygame.display.update(optimized_rects)
+            # Only process if visible (intersects with screen)
+            if sprite.rect.colliderect(screen_rect):
+                visible_sprites.append(sprite)
                 
-        # Performance tracking
-        end_time = time.time()
-        render_time = end_time - start_time
-        self.total_render_time += render_time
+                # Check if sprite can be batched (has same image as others)
+                if self.batch_enabled and hasattr(sprite, 'image') and sprite.image is not None:
+                    # Use image memory address as batch key
+                    batch_key = id(sprite.image)
+                    
+                    # Skip batching for sprites with special rendering needs
+                    if (hasattr(sprite, 'no_batch') and sprite.no_batch) or \
+                       (hasattr(sprite, 'alpha') and sprite.alpha < 255) or \
+                       (hasattr(sprite, 'rotation') and sprite.rotation != 0):
+                        non_batchable.append(sprite)
+                        continue
+                    
+                    # Add to appropriate batch
+                    if batch_key in batches:
+                        batches[batch_key].append(sprite)
+                    else:
+                        batches[batch_key] = [sprite]
+                else:
+                    non_batchable.append(sprite)
+        
+        # Second pass: render the batches
+        total_batches = 0
+        total_batched_sprites = 0
+        
+        for batch_key, batch_sprites in batches.items():
+            # Only batch if we have enough sprites to make it worthwhile
+            if len(batch_sprites) >= self.min_batch_size:
+                # Get the shared image
+                shared_image = batch_sprites[0].image
+                
+                # Draw all sprites with the same image in one batch
+                positions = [sprite.rect for sprite in batch_sprites]
+                
+                # Create dirty rect encompassing all sprites in batch
+                if positions:
+                    batch_rect = positions[0].unionall(positions)
+                    self.dirty_rects.append(batch_rect.inflate(4, 4))
+                
+                # Blit all sprites in batch
+                for sprite in batch_sprites:
+                    self.screen.blit(shared_image, sprite.rect)
+                
+                # Update batch statistics
+                total_batches += 1
+                total_batched_sprites += len(batch_sprites)
+                
+                # Draw calls saved = sprites in batch - 1 
+                # (we made 1 logical batch instead of individual draws)
+                draw_calls_saved = len(batch_sprites) - 1
+                
+                if self.show_batch_stats:
+                    frame_batches += 1
+                    frame_batched_sprites += len(batch_sprites)
+                    frame_draw_calls_saved += draw_calls_saved
+            else:
+                # Not enough sprites to justify batching, treat as individual
+                non_batchable.extend(batch_sprites)
+        
+        # Draw non-batchable sprites individually
+        for sprite in non_batchable:
+            if hasattr(sprite, 'image') and sprite.image is not None:
+                self.screen.blit(sprite.image, sprite.rect)
+                # Add to dirty rectangles for updating - with a small padding
+                padded_rect = pygame.Rect(sprite.rect).inflate(2, 2)
+                self.dirty_rects.append(padded_rect)
+        
+        # Update global batch statistics
+        self.batch_stats["batches_created"] += total_batches
+        self.batch_stats["sprites_batched"] += total_batched_sprites
+        self.batch_stats["draw_calls_saved"] += total_batched_sprites - total_batches
+        
+        # Optimize dirty rectangles to reduce overdraw
+        self.dirty_rects = self._optimize_rects(self.dirty_rects)
+        
+        # Update the display - only update modified areas
+        if self.dirty_rects:
+            pygame.display.update(self.dirty_rects)
+            self.rect_count += len(self.dirty_rects)
+            
+        # Draw debug visualizations if enabled
+        if self.show_dirty_rects:
+            for rect in self.dirty_rects:
+                pygame.draw.rect(self.screen, (255, 0, 0), rect, 1)
+            pygame.display.update()
+        
+        # Display batch statistics if enabled
+        if self.show_batch_stats:
+            info_text = f"Batches: {frame_batches} | Sprites: {frame_batched_sprites} | Saved calls: {frame_draw_calls_saved}"
+            debug_font = pygame.font.Font(None, 24)
+            text_surf = debug_font.render(info_text, True, (0, 255, 0))
+            self.screen.blit(text_surf, (10, self.screen_height - 30))
+            pygame.display.update(pygame.Rect(10, self.screen_height - 30, 400, 30))
+        
+        # Update performance metrics
+        self.total_render_time += time.time() - start_time
         self.render_count += 1
         
-        # End performance monitoring
-        if self.performance_monitor:
-            self.performance_monitor.end_section("render")
-            
-        # Report metrics periodically
-        current_time = time.time()
         if current_time - self.last_update_time >= self.report_interval:
             avg_render_time = self.total_render_time / max(1, self.render_count)
             avg_rects = self.rect_count / max(1, self.render_count)
             log_performance("Render time", avg_render_time)
             log_performance("Dirty rects/frame", avg_rects)
+            
+            # Report batching statistics
+            if self.batch_enabled:
+                avg_batches = self.batch_stats["batches_created"] / max(1, self.render_count)
+                avg_sprites = self.batch_stats["sprites_batched"] / max(1, self.render_count)
+                avg_calls_saved = self.batch_stats["draw_calls_saved"] / max(1, self.render_count)
+                
+                log_performance("Sprite batches/frame", avg_batches)
+                log_performance("Sprites batched/frame", avg_sprites)
+                log_performance("Draw calls saved/frame", avg_calls_saved)
+                
+                # Reset batch statistics
+                self.batch_stats = {
+                    "batches_created": 0,
+                    "sprites_batched": 0,
+                    "draw_calls_saved": 0
+                }
             
             # Reset counters
             self.total_render_time = 0
@@ -347,6 +454,17 @@ class GameRenderer:
         """Toggle display of dirty rectangles for debugging."""
         self.show_dirty_rects = not self.show_dirty_rects
         return self.show_dirty_rects
+        
+    def toggle_batch_stats_display(self):
+        """Toggle display of sprite batching statistics."""
+        self.show_batch_stats = not self.show_batch_stats
+        return self.show_batch_stats
+    
+    def set_batch_enabled(self, enabled):
+        """Enable or disable sprite batching."""
+        self.batch_enabled = enabled
+        log_info(f"Sprite batching {'enabled' if enabled else 'disabled'}")
+        return self.batch_enabled
         
     def get_screen(self):
         """Get the screen surface."""

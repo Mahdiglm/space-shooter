@@ -1,59 +1,58 @@
-# Space Shooter - Version 0.3.9 Release Notes
+# Space Shooter - Version 0.4.0 Release Notes
 
-## Performance Optimized Release
+## Performance Enhanced Release
 
-Release Date: 2023-10-25
+Release Date: 2025-04-15
 
 ### Key Features
 
-- Implemented dirty rectangle rendering for optimized performance
-- Added spatial partitioning for collision detection
-- Integrated comprehensive performance monitoring system
-- Enhanced UI elements with semi-transparent backgrounds
-- Improved asset caching for faster loading
-- Added visual effects with better optimization
-- Fixed sprite trail artifacts
-- Improved text rendering with caching
-- Enhanced health bar visibility
-- Added FPS counter and performance displays
-- Fixed UI display issues
+- Implemented sprite batch rendering system to dramatically reduce draw calls
+- Added intelligent detection and grouping of similar sprites
+- Integrated batch statistics monitoring for performance analysis
+- Added toggleable controls for batch rendering and statistics display
+- Enhanced performance for scenarios with many similar sprites (bullets, enemies)
+- Improved rendering pipeline efficiency
+- Maintained backward compatibility with existing rendering optimizations
+- Added special handling for sprites that cannot be batched
+- Improved debug visualization options
 
 ### Technical Improvements
 
-- **Rendering System**
-  - Implemented dirty rectangle optimization to reduce GPU load
-  - Added intelligent redraw scheduling to prevent screen blinking
-  - Improved sprite cleanup for trail elimination
-  - Enhanced text rendering with surface caching
-  - Added padded rectangles for complete sprite cleaning
+- **Sprite Batch Rendering**
 
-- **Physics System**
-  - Implemented spatial partitioning grid for collision detection
-  - Reduced collision checks by up to 90% in crowded scenes
-  - Added collision pair caching to prevent duplicate checks
-  - Implemented priority-based collision detection
+  - Added automatic grouping of sprites with identical images
+  - Implemented batch-specific dirty rectangle optimization
+  - Added minimum batch size threshold for optimal performance
+  - Created special handling for transparent or rotating sprites
+  - Implemented performance metrics tracking for batching
+  - Added toggleable batch statistics visualization
 
-- **Performance Monitoring**
-  - Added real-time FPS counter and statistics
-  - Implemented section timing for performance bottleneck detection
-  - Added toggleable debug visualizations (dirty rects, collision grid)
-  - Created performance logging system
+- **Rendering Pipeline**
 
-- **UI Improvements**
-  - Added semi-transparent UI background for better readability
-  - Enhanced health bar with better visibility
-  - Implemented smoother shield effect
-  - Added version display and FPS counter
-  - Improved game over and pause screens
+  - Optimized sprite drawing with reduced draw calls
+  - Enhanced performance for particle effects and bullets
+  - Improved handling of large numbers of similar sprites
+  - Maintained compatibility with dirty rectangle rendering
+  - Further reduced GPU load in high-density sprite scenarios
+
+- **Debug Tools**
+
+  - Added toggleable batch statistics display
+  - Implemented hotkeys for enabling/disabling batch rendering
+  - Enhanced performance monitoring to track batch statistics
+  - Added real-time visualization of batching efficiency
+
+- **General Improvements**
+  - Further optimized memory usage with better cache management
+  - Enhanced frame rate stability during intense gameplay
+  - Improved overall rendering efficiency
 
 ### Bug Fixes
 
-- Fixed health bar not displaying properly
-- Eliminated sprite trail artifacts
-- Resolved flickering text issues
-- Fixed screen blinking during periodic redraws
-- Improved memory usage by implementing proper caching
-- Fixed collision detection edge cases
+- Fixed performance bottlenecks when rendering many similar sprites
+- Fixed excessive draw calls during high sprite density scenarios
+- Fixed rendering inefficiencies with particle effects and bullets
+- Fixed minor visual artifacts with optimized batch rendering
 
 ### Controls
 
@@ -66,16 +65,20 @@ Release Date: 2023-10-25
 - M: Toggle performance monitor
 - D: Toggle debug visualization
 - T: Toggle terminal reporting
+- B: Toggle sprite batching
+- V: Toggle batch statistics display
+- C: Force full screen redraw
 
 ### Performance
 
-The game now runs at 60+ FPS on most systems with significantly reduced CPU/GPU usage.
+The game now runs at even higher frame rates with significantly improved rendering efficiency. Scenarios with large numbers of similar sprites (such as bullet patterns or enemy swarms) show dramatic performance improvements thanks to the sprite batching system.
 
 ### Known Issues
 
 - Some sound files may not be found if assets directory is missing
 - Background music playback depends on having the appropriate sound files
+- Batch rendering may not work optimally with heavily customized sprites
 
 ---
 
-Thank you for playing Space Shooter! Enjoy the improved performance and visual experience. 
+Thank you for playing Space Shooter! Enjoy the enhanced performance with our new sprite batch rendering system.

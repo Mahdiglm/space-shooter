@@ -911,6 +911,16 @@ class Game:
                         self.renderer.force_full_redraw()
                         log_game_event("Renderer", "Forced full redraw")
                     
+                    # Toggle sprite batching (B key)
+                    elif event.key == pygame.K_b:
+                        enabled = self.renderer.set_batch_enabled(not hasattr(self.renderer, 'batch_enabled') or not self.renderer.batch_enabled)
+                        log_game_event("Renderer", f"Sprite batching {'enabled' if enabled else 'disabled'}")
+                        
+                    # Toggle sprite batch statistics display (V key)
+                    elif event.key == pygame.K_v:
+                        self.renderer.toggle_batch_stats_display()
+                        log_game_event("Display", "Batch statistics display toggled")
+                    
                     # Exit game (ESC key)
                     elif event.key == pygame.K_ESCAPE:
                         self.running = False

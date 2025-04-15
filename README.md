@@ -1,12 +1,12 @@
-# 🚀 Space Shooter v0.3.9
+# 🚀 Space Shooter v0.4.0
 
 <div align="center">
 
-![Space Shooter Banner](https://via.placeholder.com/800x200/0a0a2a/ffffff?text=Space+Shooter+v0.3.9)
+![Space Shooter Banner](https://via.placeholder.com/800x200/0a0a2a/ffffff?text=Space+Shooter+v0.4.0)
 
 <h3>An optimized 2D space shooter game with advanced performance techniques</h3>
 
-[![Release Version](https://img.shields.io/badge/release-v0.3.9-blue.svg)](RELEASE_NOTES.md)
+[![Release Version](https://img.shields.io/badge/release-v0.4.0-blue.svg)](RELEASE_NOTES.md)
 [![Performance Optimized](https://img.shields.io/badge/performance-optimized-green.svg)](ARCHITECTURE.md)
 [![MIT License](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
 [![Pygame](https://img.shields.io/badge/pygame-2.0+-red.svg)](https://www.pygame.org/)
@@ -21,15 +21,15 @@ Blast through space with optimized rendering, intelligent collision detection, a
 
 ## 📚 Documentation
 
-| Document | Description |
-|----------|-------------|
-| [📋 **README.md**](README.md) | General overview, features, and installation instructions |
-| [📝 **RELEASE_NOTES.md**](RELEASE_NOTES.md) | Detailed information about the latest release |
-| [🏗️ **ARCHITECTURE.md**](ARCHITECTURE.md) | Technical architecture, performance systems, and extension guides |
-| [❓ **FAQ.md**](FAQ.md) | Frequently asked questions for both players and developers |
-| [🤝 **CONTRIBUTING.md**](CONTRIBUTING.md) | Guidelines for contributing to the project |
-| [📜 **CHANGELOG.md**](CHANGELOG.md) | Detailed history of changes and improvements |
-| [⚖️ **CODE_OF_CONDUCT.md**](CODE_OF_CONDUCT.md) | Community standards and expectations |
+| Document                                        | Description                                                       |
+| ----------------------------------------------- | ----------------------------------------------------------------- |
+| [📋 **README.md**](README.md)                   | General overview, features, and installation instructions         |
+| [📝 **RELEASE_NOTES.md**](RELEASE_NOTES.md)     | Detailed information about the latest release                     |
+| [🏗️ **ARCHITECTURE.md**](ARCHITECTURE.md)       | Technical architecture, performance systems, and extension guides |
+| [❓ **FAQ.md**](FAQ.md)                         | Frequently asked questions for both players and developers        |
+| [🤝 **CONTRIBUTING.md**](CONTRIBUTING.md)       | Guidelines for contributing to the project                        |
+| [📜 **CHANGELOG.md**](CHANGELOG.md)             | Detailed history of changes and improvements                      |
+| [⚖️ **CODE_OF_CONDUCT.md**](CODE_OF_CONDUCT.md) | Community standards and expectations                              |
 
 ## 🌟 Features
 
@@ -49,6 +49,7 @@ Blast through space with optimized rendering, intelligent collision detection, a
       <h3 align="center">⚡ Performance</h3>
       <ul>
         <li>Dirty rectangle rendering optimization</li>
+        <li>Sprite batch rendering for reduced draw calls</li>
         <li>Spatial partitioning for collision detection</li>
         <li>Asset caching and sprite culling</li>
         <li>Performance monitoring system</li>
@@ -61,6 +62,7 @@ Blast through space with optimized rendering, intelligent collision detection, a
 ## 🚀 Quick Start
 
 ### Requirements
+
 - Python 3.7 or higher
 - Pygame 2.0.0 or higher
 
@@ -105,6 +107,8 @@ python main.py
         <li><strong>D</strong>: Toggle debug visualization</li>
         <li><strong>M</strong>: Toggle performance monitor</li>
         <li><strong>C</strong>: Force full screen redraw</li>
+        <li><strong>B</strong>: Toggle sprite batching</li>
+        <li><strong>V</strong>: Toggle batch statistics</li>
       </ul>
     </td>
   </tr>
@@ -128,27 +132,41 @@ python main.py
 The game implements several advanced performance techniques:
 
 1. **🖥️ Dirty Rectangle Rendering**
+
    - Only updates portions of the screen that changed
    - Significantly reduces GPU workload and improves FPS
 
 2. **🔲 Spatial Partitioning**
+
    - Divides game space into a grid for efficient collision detection
    - Reduces collision checks from O(n²) to nearly O(n)
 
 3. **💾 Asset Caching**
+
    - Pre-loads and caches frequently used images and text surfaces
    - Dramatically reduces loading times and memory usage
 
 4. **✂️ Sprite Culling**
+
    - Off-screen sprites are bypassed during rendering
    - Reduces unnecessary processing
 
 5. **⭕ Optimized Collision Detection**
+
    - Uses circle-based collision for better accuracy and performance
    - Implements collision pair caching to prevent redundant checks
 
-## 📈 Latest Updates (v0.3.9)
+6. **📊 Sprite Batch Rendering**
+   - Groups sprites with the same image into batches
+   - Reduces draw calls for improved rendering performance
+   - Automatically detects and optimizes similar sprites
+   - Toggleable with the 'B' key for performance testing
 
+## 📈 Latest Updates (v0.4.0)
+
+- Added sprite batch rendering to significantly reduce draw calls for similar sprites
+- Added batch statistics display for monitoring rendering performance
+- Added hotkeys for toggling sprite batching (B) and batch statistics (V)
 - Fixed screen blinking during periodic redraws with intelligent redraw scheduling
 - Enhanced text rendering system with better caching and surface management
 - Improved sprite trail cleanup with better padding and background restoration
@@ -194,4 +212,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 <p>
 <strong>Space Shooter</strong> - Blast through space at 60+ FPS! 🚀
 </p>
-</div> 
+</div>
