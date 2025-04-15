@@ -1,58 +1,64 @@
-# Space Shooter - Version 0.4.0 Release Notes
+# Space Shooter - Version 0.5.0 Release Notes
 
-## Performance Enhanced Release
+## Memory Monitoring Release
 
 Release Date: 2025-04-15
 
 ### Key Features
 
-- Implemented sprite batch rendering system to dramatically reduce draw calls
-- Added intelligent detection and grouping of similar sprites
-- Integrated batch statistics monitoring for performance analysis
-- Added toggleable controls for batch rendering and statistics display
-- Enhanced performance for scenarios with many similar sprites (bullets, enemies)
-- Improved rendering pipeline efficiency
-- Maintained backward compatibility with existing rendering optimizations
-- Added special handling for sprites that cannot be batched
-- Improved debug visualization options
+- Implemented comprehensive memory monitoring system with real-time tracking
+- Added automatic memory leak detection with visual and logging warnings
+- Added memory usage metrics to performance visualization
+- Integrated psutil for accurate system memory analysis
+- Added memory baseline tracking to measure growth over time
+- Provided debug tools for memory analysis and leak detection
+- Enhanced performance monitoring with memory-specific metrics
+- Maintained backward compatibility with existing performance features
+- Added hotkeys for controlling memory monitoring features
+- Optimized memory usage in sprite management and rendering
 
 ### Technical Improvements
 
-- **Sprite Batch Rendering**
+- **Memory Monitoring System**
 
-  - Added automatic grouping of sprites with identical images
-  - Implemented batch-specific dirty rectangle optimization
-  - Added minimum batch size threshold for optimal performance
-  - Created special handling for transparent or rotating sprites
-  - Implemented performance metrics tracking for batching
-  - Added toggleable batch statistics visualization
+  - Implemented real-time memory usage tracking with psutil
+  - Added memory metrics visualization in performance display
+  - Created baseline memory tracking to identify growth patterns
+  - Implemented memory leak detection algorithms
+  - Added visual indicators for potential memory issues
+  - Integrated with existing performance monitoring
 
-- **Rendering Pipeline**
+- **Memory Optimization Tools**
 
-  - Optimized sprite drawing with reduced draw calls
-  - Enhanced performance for particle effects and bullets
-  - Improved handling of large numbers of similar sprites
-  - Maintained compatibility with dirty rectangle rendering
-  - Further reduced GPU load in high-density sprite scenarios
+  - Added memory baseline reset functionality
+  - Implemented memory growth tracking with percentage calculation
+  - Created memory-specific warnings for high memory usage
+  - Added configurable thresholds for warning levels
+  - Integrated with logging system for memory event tracking
+  - Added garbage collection optimizations during memory sampling
 
-- **Debug Tools**
+- **Debug Capabilities**
 
-  - Added toggleable batch statistics display
-  - Implemented hotkeys for enabling/disabling batch rendering
-  - Enhanced performance monitoring to track batch statistics
-  - Added real-time visualization of batching efficiency
+  - Added memory leak testing functionality for debugging
+  - Created visual indicators for memory issues
+  - Implemented detailed memory information in terminal
+  - Added memory statistics to performance reports
+  - Created memory analysis tools for developers
 
 - **General Improvements**
-  - Further optimized memory usage with better cache management
-  - Enhanced frame rate stability during intense gameplay
-  - Improved overall rendering efficiency
+  - Enhanced performance monitor UI with memory section
+  - Improved reporting of performance metrics
+  - Added memory-specific hotkeys for better debugging
+  - Updated requirements to support memory monitoring
+  - Optimized memory usage in sprite and texture management
 
 ### Bug Fixes
 
-- Fixed performance bottlenecks when rendering many similar sprites
-- Fixed excessive draw calls during high sprite density scenarios
-- Fixed rendering inefficiencies with particle effects and bullets
-- Fixed minor visual artifacts with optimized batch rendering
+- Fixed potential memory leaks in texture caching system
+- Optimized garbage collection timing during gameplay
+- Fixed sprite memory management for better efficiency
+- Improved memory usage in performance monitoring
+- Enhanced cache management to prevent memory bloat
 
 ### Controls
 
@@ -62,23 +68,26 @@ Release Date: 2025-04-15
 - R: Restart (when game over)
 - ESC: Quit game
 - F: Toggle FPS display
-- M: Toggle performance monitor
-- D: Toggle debug visualization
+- G: Toggle memory monitoring display
 - T: Toggle terminal reporting
+- D: Toggle debug visualization
+- M: Toggle performance monitor
+- C: Force full screen redraw
 - B: Toggle sprite batching
 - V: Toggle batch statistics display
-- C: Force full screen redraw
+- N: Reset memory baseline
+- L: Trigger memory leak test (in debug mode)
 
 ### Performance
 
-The game now runs at even higher frame rates with significantly improved rendering efficiency. Scenarios with large numbers of similar sprites (such as bullet patterns or enemy swarms) show dramatic performance improvements thanks to the sprite batching system.
+The game now includes comprehensive memory monitoring that helps identify and prevent memory leaks, resulting in more stable and efficient long-term gameplay sessions. Memory usage is tracked and visualized in real-time, with automatic warnings when potentially problematic patterns are detected.
 
 ### Known Issues
 
 - Some sound files may not be found if assets directory is missing
 - Background music playback depends on having the appropriate sound files
-- Batch rendering may not work optimally with heavily customized sprites
+- Memory monitoring adds a small performance overhead (approximately 1-2% CPU usage)
 
 ---
 
-Thank you for playing Space Shooter! Enjoy the enhanced performance with our new sprite batch rendering system.
+Thank you for playing Space Shooter! Enjoy the new memory monitoring system that helps keep the game running smoothly even during extended gameplay sessions.

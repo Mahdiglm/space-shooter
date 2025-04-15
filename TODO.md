@@ -3,7 +3,7 @@
 ## Performance Optimizations
 
 - [x] **Sprite Batch Rendering**: Implement sprite batching to reduce draw calls when many similar sprites are present.
-- [ ] **Memory Usage Optimization**: Profile memory usage during gameplay to identify and fix potential memory leaks.
+- [x] **Memory Usage Optimization**: Profile memory usage during gameplay to identify and fix potential memory leaks.
 - [ ] **Asset Preloading**: Implement a formal asset preloading system that loads all assets at startup rather than on-demand.
 - [ ] **Texture Atlas Implementation**: Convert individual sprite images to a texture atlas to reduce texture switching.
 - [ ] **Frame Limiting Improvement**: The current sleep-based frame limiting approach isn't precise - consider using pygame.time.Clock's tick method with proper delta-time handling.
@@ -57,7 +57,7 @@
 
 - [ ] **Profiling Tools Integration**: Add integration with profiling tools like cProfile or line_profiler.
 - [ ] **Automated Performance Testing**: Implement automated performance tests to catch regressions.
-- [ ] **Memory Usage Tracking**: Add memory usage monitoring to detect memory leaks.
+- [x] **Memory Usage Tracking**: Add memory usage monitoring to detect memory leaks.
 - [ ] **Bottleneck Visualization**: Improve the visualization of performance bottlenecks.
 
 ## Asset Management

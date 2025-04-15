@@ -2,16 +2,17 @@
 Space Shooter Game - Version Information
 """
 
-VERSION = "0.4.0"
+VERSION = "0.5.0"
 VERSION_NAME = "Performance Optimized"
-RELEASE_DATE = "2023-11-15"
+RELEASE_DATE = "2023-12-15"
 
 VERSION_INFO = {
     "major": 0,
-    "minor": 4,
+    "minor": 5,
     "patch": 0,
     "status": "stable",
     "features": [
+        "Memory usage monitoring and leak detection",
         "Sprite batch rendering system",
         "Dirty rectangle rendering optimization",
         "Spatial partitioning for collision detection",

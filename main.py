@@ -882,6 +882,12 @@ class Game:
                         self.renderer.force_full_redraw()
                         log_game_event("Display", "Performance monitor toggled")
 
+                    # Toggle memory monitoring display (G key)
+                    elif event.key == pygame.K_g:
+                        self.perf_monitor.toggle_memory_display()
+                        self.renderer.force_full_redraw()
+                        log_game_event("Display", "Memory monitoring toggled")
+
                     # Toggle FPS display (F key)
                     elif event.key == pygame.K_f:
                         self.show_fps = not self.show_fps
@@ -920,6 +926,16 @@ class Game:
                     elif event.key == pygame.K_v:
                         self.renderer.toggle_batch_stats_display()
                         log_game_event("Display", "Batch statistics display toggled")
+                    
+                    # Reset memory baseline (N key) - useful after loading assets
+                    elif event.key == pygame.K_n:
+                        baseline = self.perf_monitor.reset_memory_baseline()
+                        log_game_event("Memory", f"Memory baseline reset to {baseline:.1f} MB")
+                    
+                    # Trigger memory leak test (L key) - debug only
+                    elif event.key == pygame.K_l and hasattr(self, 'debug_mode') and self.debug_mode:
+                        self.memory_leak_test()
+                        log_game_event("Debug", "Memory leak test triggered")
                     
                     # Exit game (ESC key)
                     elif event.key == pygame.K_ESCAPE:
@@ -1510,6 +1526,56 @@ class Game:
         self.screen.blit(pause_text, (self.screen_width//2 - pause_text.get_width()//2, self.screen_height//2 - 50))
         self.screen.blit(resume_text, (self.screen_width//2 - resume_text.get_width()//2, self.screen_height//2 + 10))
         self.screen.blit(version_text, (self.screen_width//2 - version_text.get_width()//2, self.screen_height//2 + 50))
+
+    def memory_leak_test(self, leak_size_mb=10):
+        """
+        Deliberately create a memory leak for testing the memory monitoring system.
+        This function allocates memory without releasing it, simulating a leak.
+        
+        Args:
+            leak_size_mb (int): Size of the leak to create in MB.
+        """
+        log_warning(f"Creating deliberate memory leak of ~{leak_size_mb} MB for testing")
+        
+        # Store a reference globally to prevent garbage collection
+        if not hasattr(self, '_leak_objects'):
+            self._leak_objects = []
+        
+        # Create large chunks of memory
+        # Each element is 8 bytes, so we need 131,072 elements per MB
+        elements_per_mb = 131072
+        total_elements = leak_size_mb * elements_per_mb
+        
+        # Create a large list and store it
+        large_array = [1.0] * total_elements
+        self._leak_objects.append(large_array)
+        
+        # Create some objects with circular references (these won't be garbage collected)
+        class LeakingObject:
+            pass
+            
+        for i in range(100):
+            a = LeakingObject()
+            b = LeakingObject()
+            a.ref = b
+            b.ref = a
+            a.data = [0] * 10000  # Add some data to make it bigger
+            self._leak_objects.append((a, b))
+            
+        log_info(f"Created {leak_size_mb} MB memory leak for testing. Total leaks: {len(self._leak_objects)}")
+        
+    def cleanup_leak_test(self):
+        """
+        Clean up the memory leak created for testing.
+        """
+        if hasattr(self, '_leak_objects'):
+            count = len(self._leak_objects)
+            self._leak_objects.clear()
+            import gc
+            gc.collect()
+            log_info(f"Cleaned up {count} leak objects")
+            return count
+        return 0
 
 # Replace the global game initialization code with a main function
 def main():

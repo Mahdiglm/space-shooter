@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Release Descriptions
 
+### Version 0.5.0 (Stable)
+
+A technical enhancement release that introduces comprehensive memory monitoring and leak detection capabilities. This version helps identify memory issues during development and provides tools for analyzing and optimizing memory usage during gameplay.
+
 ### Version 0.4.0 (Stable)
 
 A performance enhancement release that introduces sprite batch rendering to significantly reduce draw calls and improve rendering performance. This version optimizes the rendering pipeline for handling large numbers of similar sprites and includes new debugging tools for monitoring batch rendering performance.
@@ -66,6 +70,37 @@ A bug-fix and improvement release that adds essential game features like scoring
 ### Version 0.1.0 (Pre-Alpha)
 
 The initial release of the Space Shooter game, establishing the basic game mechanics and structure. This version provides the foundation for all future development.
+
+## [0.5.0] - 2023-12-15
+
+### Added
+
+- Added comprehensive memory usage monitoring system using psutil
+- Implemented memory leak detection with automatic warnings
+- Added memory statistics display to performance visualization
+- Added hotkeys for memory monitoring display (G) and baseline reset (N)
+- Added memory usage tracking to performance logs
+- Added memory baseline tracking to measure growth over time
+- Added memory leak testing functionality for debugging
+- Added visual indicators for potential memory issues
+- Added memory metrics to performance reports
+- Added automatic garbage collection during memory sampling
+
+### Changed
+
+- Enhanced performance monitor with memory tracking capabilities
+- Improved rendering of performance metrics display
+- Updated requirements.txt to include psutil for memory monitoring
+- Enhanced console reporting with memory usage information
+- Updated input handling to support memory monitoring features
+- Improved debugging tools with memory-specific functionality
+
+### Fixed
+
+- Fixed potential memory leaks in texture caching
+- Optimized garbage collection during gameplay
+- Fixed memory tracking issues in performance monitoring
+- Improved memory efficiency in sprite management
 
 ## [0.4.0] - 2023-11-15
 

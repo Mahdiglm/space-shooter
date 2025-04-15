@@ -1,12 +1,12 @@
-# 🚀 Space Shooter v0.4.0
+# 🚀 Space Shooter v0.5.0
 
 <div align="center">
 
-![Space Shooter Banner](https://via.placeholder.com/800x200/0a0a2a/ffffff?text=Space+Shooter+v0.4.0)
+![Space Shooter Banner](https://via.placeholder.com/800x200/0a0a2a/ffffff?text=Space+Shooter+v0.5.0)
 
 <h3>An optimized 2D space shooter game with advanced performance techniques</h3>
 
-[![Release Version](https://img.shields.io/badge/release-v0.4.0-blue.svg)](RELEASE_NOTES.md)
+[![Release Version](https://img.shields.io/badge/release-v0.5.0-blue.svg)](RELEASE_NOTES.md)
 [![Performance Optimized](https://img.shields.io/badge/performance-optimized-green.svg)](ARCHITECTURE.md)
 [![MIT License](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
 [![Pygame](https://img.shields.io/badge/pygame-2.0+-red.svg)](https://www.pygame.org/)
@@ -50,6 +50,7 @@ Blast through space with optimized rendering, intelligent collision detection, a
       <ul>
         <li>Dirty rectangle rendering optimization</li>
         <li>Sprite batch rendering for reduced draw calls</li>
+        <li>Memory usage profiling and leak detection</li>
         <li>Spatial partitioning for collision detection</li>
         <li>Asset caching and sprite culling</li>
         <li>Performance monitoring system</li>
@@ -103,12 +104,15 @@ python main.py
     <td>
       <ul align="left">
         <li><strong>F</strong>: Toggle FPS display</li>
+        <li><strong>G</strong>: Toggle memory monitoring</li>
         <li><strong>T</strong>: Toggle terminal reporting</li>
         <li><strong>D</strong>: Toggle debug visualization</li>
         <li><strong>M</strong>: Toggle performance monitor</li>
         <li><strong>C</strong>: Force full screen redraw</li>
         <li><strong>B</strong>: Toggle sprite batching</li>
         <li><strong>V</strong>: Toggle batch statistics</li>
+        <li><strong>N</strong>: Reset memory baseline</li>
+        <li><strong>L</strong>: Trigger memory leak test (debug mode)</li>
       </ul>
     </td>
   </tr>
@@ -157,23 +161,32 @@ The game implements several advanced performance techniques:
    - Implements collision pair caching to prevent redundant checks
 
 6. **📊 Sprite Batch Rendering**
+
    - Groups sprites with the same image into batches
    - Reduces draw calls for improved rendering performance
    - Automatically detects and optimizes similar sprites
    - Toggleable with the 'B' key for performance testing
 
-## 📈 Latest Updates (v0.4.0)
+7. **💻 Memory Monitoring**
+   - Real-time tracking of memory usage during gameplay
+   - Automatic detection of potential memory leaks
+   - Visual warnings when memory usage exceeds thresholds
+   - Detailed memory statistics for performance profiling
 
+## 📈 Latest Updates (v0.5.0)
+
+- Added comprehensive memory usage monitoring system
+- Implemented memory leak detection with automatic warnings
+- Added memory statistics display to performance visualization
+- Added hotkeys for memory monitoring display (G) and baseline reset (N)
+- Added debug function for memory leak testing
+- Updated performance monitoring system with memory metrics
+- Enhanced reporting of memory usage in console and logs
 - Added sprite batch rendering to significantly reduce draw calls for similar sprites
 - Added batch statistics display for monitoring rendering performance
 - Added hotkeys for toggling sprite batching (B) and batch statistics (V)
 - Fixed screen blinking during periodic redraws with intelligent redraw scheduling
 - Enhanced text rendering system with better caching and surface management
-- Improved sprite trail cleanup with better padding and background restoration
-- Added semi-transparent UI background for better readability
-- Increased health bar size and visibility
-- Optimized full screen redraw intervals to reduce visual artifacts
-- Created comprehensive RELEASE_NOTES.md with detailed changelog
 
 ## 🤝 Contributing
 

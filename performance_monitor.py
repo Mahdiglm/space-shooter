@@ -1,15 +1,18 @@
 import time
 import pygame
 import sys
+import psutil
+import os
 from collections import deque
-from game_logger import log_performance, log_debug, log_info
+from game_logger import log_performance, log_debug, log_info, log_warning
 
 class PerformanceMonitor:
     """
     Monitors and analyzes game performance metrics.
     Provides real-time FPS reporting to terminal and on-screen display.
+    Also tracks memory usage to identify potential memory leaks.
     """
-    def __init__(self, sample_size=60):
+    def __init__(self, sample_size=60, memory_sample_size=120):
         # Initialize timing metrics with efficient data structure
         self.metrics = {
             "frame": deque(maxlen=sample_size),
@@ -20,6 +23,31 @@ class PerformanceMonitor:
             "input": deque(maxlen=sample_size),
             "loading": deque(maxlen=sample_size)  # Add loading metric
         }
+        
+        # Initialize memory metrics
+        self.memory_metrics = {
+            "rss": deque(maxlen=memory_sample_size),      # Resident Set Size
+            "vms": deque(maxlen=memory_sample_size),      # Virtual Memory Size
+            "percent": deque(maxlen=memory_sample_size),  # Memory usage as percentage
+            "allocated": deque(maxlen=memory_sample_size) # Allocated objects (for leak detection)
+        }
+        
+        # Memory monitoring info
+        self.process = psutil.Process(os.getpid())
+        self.memory_sample_interval = 1.0  # Sample memory every second
+        self.last_memory_sample_time = time.time()
+        self.memory_warning_threshold = 500  # MB
+        self.memory_critical_threshold = 1000  # MB
+        self.memory_leak_detection_enabled = True
+        self.memory_leak_threshold = 0.05  # 5% increase over time indicates potential leak
+        
+        # Memory leak detection variables
+        self.memory_baseline = None
+        self.memory_samples_for_leak_detection = 10  # Number of samples to consider for leak detection
+        self.consecutive_increases = 0
+        self.leak_detected = False
+        self.last_leak_warning_time = 0
+        self.leak_warning_interval = 30.0  # Only warn about leaks every 30 seconds
         
         # Current frame timing data
         self.current_frame = {}
@@ -53,6 +81,7 @@ class PerformanceMonitor:
         self.monitoring_enabled = True
         self.display_enabled = False
         self.terminal_reporting_enabled = True
+        self.memory_display_enabled = True
         
         # Performance bottleneck detection
         self.bottleneck_threshold = 0.5  # 50% of frame time
@@ -60,6 +89,11 @@ class PerformanceMonitor:
         
         # Precompute common text surfaces
         self._precompute_common_text()
+        
+        # Initialize memory tracking
+        self._sample_memory()
+        self.memory_baseline = self._get_current_memory_mb("rss")
+        log_info(f"Initial memory usage: {self.memory_baseline:.2f} MB")
 
     def _precompute_common_text(self):
         """Precompute common text surfaces to improve rendering performance."""
@@ -70,6 +104,9 @@ class PerformanceMonitor:
         # Precompute FPS text for common values
         for fps in range(10, 121, 5):  # 10, 15, ..., 120 FPS
             self.fps_text_cache[fps] = self.font.render(f"FPS: {fps}", True, (255, 255, 0))
+            
+        # Add memory labels
+        self.section_labels["memory"] = self.font.render("Memory: ", True, (255, 255, 255))
 
     def start_frame(self):
         """Start timing a new frame."""
@@ -123,6 +160,15 @@ class PerformanceMonitor:
             self.max_fps = max(self.max_fps, self.fps)
             self.avg_fps_samples.append(self.fps)
         
+        # Sample memory usage at regular intervals
+        if current_time - self.last_memory_sample_time >= self.memory_sample_interval:
+            self._sample_memory()
+            self.last_memory_sample_time = current_time
+            
+            # Check for memory leaks if enabled
+            if self.memory_leak_detection_enabled:
+                self._check_for_memory_leaks()
+        
         # Report FPS to terminal every second
         if self.terminal_reporting_enabled and current_time - self.last_fps_report_time >= self.fps_report_interval:
             self._report_fps_to_terminal()
@@ -139,8 +185,86 @@ class PerformanceMonitor:
         # Detect bottlenecks
         self._detect_bottlenecks(frame_time)
 
+    def _sample_memory(self):
+        """Sample current memory usage and store in metrics."""
+        try:
+            # Force a garbage collection to get more accurate memory usage
+            import gc
+            gc.collect()
+            
+            # Update memory info
+            mem_info = self.process.memory_info()
+            
+            # Store memory info in MB
+            rss_mb = mem_info.rss / (1024 * 1024)
+            vms_mb = mem_info.vms / (1024 * 1024)
+            
+            # Store in metrics
+            self.memory_metrics["rss"].append(rss_mb)
+            self.memory_metrics["vms"].append(vms_mb)
+            self.memory_metrics["percent"].append(self.process.memory_percent())
+            
+            # Check for memory warnings
+            if rss_mb > self.memory_critical_threshold:
+                log_warning(f"CRITICAL: Memory usage too high: {rss_mb:.2f} MB")
+                self.warnings.append(f"CRITICAL: Memory usage: {rss_mb:.2f} MB")
+            elif rss_mb > self.memory_warning_threshold:
+                log_warning(f"WARNING: Memory usage high: {rss_mb:.2f} MB")
+                self.warnings.append(f"Warning: Memory usage: {rss_mb:.2f} MB")
+                
+            # Track object allocations for leak detection
+            self.memory_metrics["allocated"].append(len(gc.get_objects()))
+            
+            return rss_mb
+        except Exception as e:
+            log_warning(f"Error sampling memory: {e}")
+            return 0
+
+    def _check_for_memory_leaks(self):
+        """Check if memory usage is consistently increasing (potential leak)."""
+        if len(self.memory_metrics["rss"]) < self.memory_samples_for_leak_detection:
+            return  # Not enough samples yet
+        
+        # Get a slice of recent samples
+        recent_samples = list(self.memory_metrics["rss"])[-self.memory_samples_for_leak_detection:]
+        
+        # Check if memory is consistently increasing
+        is_increasing = all(recent_samples[i] <= recent_samples[i+1] for i in range(len(recent_samples)-1))
+        
+        # Calculate growth percentage
+        if len(recent_samples) >= 2:
+            growth_percent = (recent_samples[-1] - recent_samples[0]) / recent_samples[0]
+        else:
+            growth_percent = 0
+        
+        # Check if growth exceeds our threshold (indicating a potential leak)
+        if is_increasing and growth_percent > self.memory_leak_threshold:
+            self.consecutive_increases += 1
+            
+            # Only consider it a leak after several consecutive increases
+            if self.consecutive_increases >= 3 and not self.leak_detected:
+                self.leak_detected = True
+                current_time = time.time()
+                
+                # Don't spam warnings about the same leak
+                if current_time - self.last_leak_warning_time > self.leak_warning_interval:
+                    log_warning(f"Potential memory leak detected! Memory increased by {growth_percent*100:.2f}% over last {self.memory_samples_for_leak_detection} samples")
+                    self.warnings.append("Potential memory leak detected!")
+                    self.last_leak_warning_time = current_time
+        else:
+            # Reset consecutive counter if not increasing
+            self.consecutive_increases = 0
+            if self.leak_detected and len(recent_samples) >= 2 and recent_samples[-1] < recent_samples[-2]:
+                self.leak_detected = False  # Consider the leak resolved if memory decreases
+
+    def _get_current_memory_mb(self, metric="rss"):
+        """Get the current memory usage in MB for the specified metric."""
+        if not self.memory_metrics[metric]:
+            return 0
+        return self.memory_metrics[metric][-1]
+
     def _report_fps_to_terminal(self):
-        """Report current FPS to terminal."""
+        """Report current FPS and memory usage to terminal."""
         avg_fps = sum(self.avg_fps_samples) / len(self.avg_fps_samples) if self.avg_fps_samples else self.fps
         
         # Color coding based on FPS
@@ -153,11 +277,23 @@ class PerformanceMonitor:
         
         reset = '\033[0m'
         
-        # Report to terminal with color
+        # Report FPS to terminal with color
         print(f"FPS: {color}{self.fps:.1f}{reset} (Avg: {avg_fps:.1f}, Min: {self.min_fps:.1f}, Max: {self.max_fps:.1f})")
+        
+        # Report memory usage
+        mem_rss = self._get_current_memory_mb("rss")
+        mem_color = '\033[92m'  # Green by default
+        
+        if mem_rss > self.memory_critical_threshold:
+            mem_color = '\033[91m'  # Red
+        elif mem_rss > self.memory_warning_threshold:
+            mem_color = '\033[93m'  # Yellow
+            
+        print(f"Memory: {mem_color}{mem_rss:.1f} MB{reset}")
         
         # Log to file as well
         log_info(f"FPS: {self.fps:.1f} (Avg: {avg_fps:.1f}, Min: {self.min_fps:.1f}, Max: {self.max_fps:.1f})")
+        log_info(f"Memory: {mem_rss:.1f} MB")
         
         # Print identified bottlenecks if any
         if self.identified_bottlenecks:
@@ -196,13 +332,32 @@ class PerformanceMonitor:
         log_performance("FPS", avg_fps)
         log_performance("Frame Time", avg_frame)
         
+        # Log memory usage
+        if self.memory_metrics["rss"]:
+            current_mem = self.memory_metrics["rss"][-1]
+            avg_mem = sum(self.memory_metrics["rss"]) / len(self.memory_metrics["rss"])
+            initial_mem = self.memory_baseline if self.memory_baseline is not None else 0
+            
+            log_performance("Memory (MB)", current_mem)
+            log_performance("Avg Memory (MB)", avg_mem)
+            
+            # Calculate memory growth
+            if initial_mem > 0:
+                growth = (current_mem - initial_mem) / initial_mem * 100
+                log_performance("Memory Growth (%)", growth)
+        
         # Log individual section times if they have data
         for section in ["update", "render", "collision", "ai", "input"]:
-            if self.metrics[section]:
-                avg = sum(self.metrics[section]) / len(self.metrics[section])
-                percentage = (avg / avg_frame) * 100 if avg_frame > 0 else 0
-                log_performance(f"{section.capitalize()} Time", avg)
-                log_performance(f"{section.capitalize()} %", percentage)
+            if not self.metrics[section]:
+                continue
+                
+            avg_time = sum(self.metrics[section]) / len(self.metrics[section])
+            log_performance(f"{section.capitalize()} Time", avg_time)
+            
+            # Calculate percentage of frame time
+            if avg_frame > 0:
+                percent = avg_time / avg_frame * 100
+                log_performance(f"{section.capitalize()} %", percent)
 
     def draw(self, surface):
         """Draw performance metrics on screen."""
@@ -210,7 +365,11 @@ class PerformanceMonitor:
             return None
             
         # Background for readability
-        metrics_bg = pygame.Rect(5, 5, 200, 135)
+        metrics_height = 135
+        if self.memory_display_enabled:
+            metrics_height += 60  # Add space for memory display
+            
+        metrics_bg = pygame.Rect(5, 5, 200, metrics_height)
         pygame.draw.rect(surface, (0, 0, 0, 128), metrics_bg)
         pygame.draw.rect(surface, (255, 255, 255), metrics_bg, 1)
         
@@ -251,49 +410,99 @@ class PerformanceMonitor:
             stats_text = self.font.render(f"Min/Avg/Max: {self.min_fps:.0f}/{avg_fps:.0f}/{self.max_fps:.0f}", True, (200, 200, 200))
             surface.blit(stats_text, (10, y))
             y += 20
-                
-        # Display the most recent warning
-        if self.warnings:
-            warning_text = self.font.render(self.warnings[-1], True, (255, 100, 100))
-            surface.blit(warning_text, (10, y))
+        
+        # Memory usage display
+        if self.memory_display_enabled:
+            # Add a small separator line
+            pygame.draw.line(surface, (150, 150, 150), (10, y), (190, y), 1)
+            y += 10
             
-        # Return the rectangle that was modified
-        return metrics_bg
-
+            # Display current memory usage
+            mem_rss = self._get_current_memory_mb("rss")
+            
+            # Choose color based on memory usage
+            if mem_rss > self.memory_critical_threshold:
+                mem_color = (255, 0, 0)  # Red
+            elif mem_rss > self.memory_warning_threshold:
+                mem_color = (255, 255, 0)  # Yellow
+            else:
+                mem_color = (0, 255, 0)  # Green
+                
+            surface.blit(self.section_labels["memory"], (10, y))
+            mem_text = self.font.render(f"{mem_rss:.1f} MB", True, mem_color)
+            surface.blit(mem_text, (80, y))
+            y += 20
+            
+            # Show memory change from baseline
+            if self.memory_baseline is not None:
+                change = mem_rss - self.memory_baseline
+                change_pct = (change / self.memory_baseline * 100) if self.memory_baseline > 0 else 0
+                
+                # Color based on change percentage
+                if change_pct > 50:
+                    change_color = (255, 0, 0)  # Red
+                elif change_pct > 20:
+                    change_color = (255, 255, 0)  # Yellow
+                else:
+                    change_color = (200, 200, 200)  # Gray
+                
+                change_prefix = "+" if change >= 0 else ""
+                change_text = self.font.render(f"Change: {change_prefix}{change:.1f} MB ({change_prefix}{change_pct:.1f}%)", 
+                                               True, change_color)
+                surface.blit(change_text, (10, y))
+                y += 20
+            
+            # Display leak warning if detected
+            if self.leak_detected:
+                leak_text = self.font.render("Memory leak detected!", True, (255, 0, 0))
+                surface.blit(leak_text, (10, y))
+                y += 20
+                
     def toggle_display(self):
-        """Toggle the on-screen display of performance metrics."""
+        """Toggle display of performance metrics."""
         self.display_enabled = not self.display_enabled
         return self.display_enabled
         
     def toggle_terminal_reporting(self):
-        """Toggle FPS reporting to terminal."""
+        """Toggle terminal reporting of performance metrics."""
         self.terminal_reporting_enabled = not self.terminal_reporting_enabled
         return self.terminal_reporting_enabled
-
+        
+    def toggle_memory_display(self):
+        """Toggle display of memory metrics."""
+        self.memory_display_enabled = not self.memory_display_enabled
+        return self.memory_display_enabled
+        
     def enable_monitoring(self, enabled=True):
         """Enable or disable performance monitoring."""
         self.monitoring_enabled = enabled
+        return self.monitoring_enabled
         
     def get_fps(self):
-        """Get the current FPS value."""
+        """Get the current FPS."""
         return self.fps
         
     def get_performance_summary(self):
-        """Get a summary of performance metrics for diagnostics."""
-        if not self.metrics["frame"]:
-            return "No performance data available"
-            
-        avg_frame = sum(self.metrics["frame"]) / len(self.metrics["frame"])
-        avg_fps = 1.0 / avg_frame if avg_frame > 0 else 0
+        """Get a summary of performance metrics."""
+        summary = {
+            "fps": self.fps,
+            "avg_fps": sum(self.avg_fps_samples) / len(self.avg_fps_samples) if self.avg_fps_samples else 0,
+            "min_fps": self.min_fps,
+            "max_fps": self.max_fps,
+            "memory_mb": self._get_current_memory_mb("rss"),
+            "memory_baseline_mb": self.memory_baseline,
+            "memory_growth_percent": ((self._get_current_memory_mb("rss") - self.memory_baseline) / self.memory_baseline * 100) 
+                                     if self.memory_baseline and self.memory_baseline > 0 else 0,
+            "leak_detected": self.leak_detected
+        }
         
-        summary = []
-        summary.append(f"FPS: {self.fps:.1f} (Min: {self.min_fps:.1f}, Max: {self.max_fps:.1f})")
-        summary.append(f"Frame time: {avg_frame*1000:.1f}ms")
+        return summary
         
-        for section in ["update", "render", "collision"]:
-            if self.metrics[section]:
-                avg = sum(self.metrics[section]) / len(self.metrics[section])
-                percentage = (avg / avg_frame) * 100 if avg_frame > 0 else 0
-                summary.append(f"{section}: {avg*1000:.1f}ms ({percentage:.1f}%)")
-                
-        return "\n".join(summary) 
+    def reset_memory_baseline(self):
+        """Reset the memory baseline to current usage. Useful after loading is complete."""
+        self._sample_memory()
+        self.memory_baseline = self._get_current_memory_mb("rss")
+        self.leak_detected = False
+        self.consecutive_increases = 0
+        log_info(f"Memory baseline reset to {self.memory_baseline:.2f} MB")
+        return self.memory_baseline 
