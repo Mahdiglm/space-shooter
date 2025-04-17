@@ -1426,8 +1426,46 @@ class Game:
             
         return explosion
 
+    def setup_sprite_atlas_info(self, sprite, sprite_key):
+        """
+        Set up texture atlas information for a sprite after it's created.
+        This connects sprites to their atlas regions for efficient rendering.
+        
+        Args:
+            sprite (pygame.sprite.Sprite): The sprite to set up
+            sprite_key (str): The key of the sprite in the asset loader
+        """
+        if not hasattr(self.asset_loader, 'texture_atlases') or not self.asset_loader.use_atlases:
+            return
+            
+        # Check if this sprite uses a texture atlas
+        if sprite_key in self.asset_loader.images:
+            img_data = self.asset_loader.images[sprite_key]
+            
+            # If this is an atlas reference
+            if isinstance(img_data, dict) and 'atlas' in img_data:
+                atlas_name = img_data['atlas']
+                if atlas_name in self.asset_loader.texture_atlases:
+                    # Get the atlas and region
+                    atlas = self.asset_loader.texture_atlases[atlas_name]
+                    region = img_data['region']
+                    
+                    # Set up the sprite's atlas info
+                    sprite.atlas_info = {
+                        'atlas': atlas_name,
+                        'region': region
+                    }
+                    sprite.atlas_surface = atlas.get_atlas_surface()
+                    
+                    log_debug(f"Set up texture atlas info for sprite {sprite_key} using atlas {atlas_name}")
+        
     def spawn_enemy(self):
-        """Spawn an enemy of random type based on difficulty."""
+        """
+        Spawn a random enemy based on enemy type probabilities and current difficulty.
+        
+        Returns:
+            Enemy: The spawned enemy object
+        """
         # Random enemy type with weighted probability
         enemy_types = []
         
@@ -1466,6 +1504,8 @@ class Game:
             enemy.prev_rect = enemy.rect.copy()
             enemy.radius = enemy.rect.width // 2
         
+        self.setup_sprite_atlas_info(enemy, image_key)
+        
         return enemy
         
     def spawn_powerup(self, x, y):
@@ -1487,6 +1527,8 @@ class Game:
             powerup.rect.centery = y
             powerup.prev_rect = powerup.rect.copy()
             powerup.radius = powerup.rect.width // 2
+        
+        self.setup_sprite_atlas_info(powerup, image_key)
         
         self.sprite_manager.add_sprite(powerup, 'powerup')
         
