@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Release Descriptions
 
+### Version 0.6.2 (Stable)
+
+A performance enhancement release that implements texture atlas support for sprites. This version reduces GPU texture switching by combining multiple sprite images into unified texture atlases, resulting in improved rendering performance, especially when many different sprites are on-screen simultaneously.
+
 ### Version 0.6.1 (Stable)
 
 A bugfix release that addresses issues with power-up handling in the Player class. This patch fixes initialization of several properties related to power-ups which could cause errors during gameplay, particularly when activating rapid fire and double points power-ups.
@@ -78,6 +82,28 @@ A bug-fix and improvement release that adds essential game features like scoring
 ### Version 0.1.0 (Pre-Alpha)
 
 The initial release of the Space Shooter game, establishing the basic game mechanics and structure. This version provides the foundation for all future development.
+
+## [0.6.2] - 2024-05-01
+
+### Added
+
+- Added texture atlas integration for all game sprites
+- Added proper sprite-to-atlas connection in sprite creation
+- Added support for rendering sprites directly from texture atlases
+- Added atlas performance statistics in debug display
+
+### Changed
+
+- Enhanced enemy and powerup spawning with texture atlas support
+- Improved GPU performance by reducing texture switches
+- Optimized rendering pipeline for texture atlases
+- Integrated texture atlas support with existing rendering systems
+
+### Fixed
+
+- Fixed potential rendering inefficiencies with multiple sprites
+- Optimized GPU memory usage with shared textures
+- Reduced texture binding operations during rendering
 
 ## [0.6.1] - 2024-05-01
 
