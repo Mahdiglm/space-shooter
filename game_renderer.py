@@ -41,6 +41,14 @@ class GameRenderer:
         self.min_batch_size = 5  # Minimum sprites for batch to be worthwhile
         self.sprite_batches = {}  # Dictionary to store batches by image ID
         
+        # Texture atlas support
+        self.use_texture_atlas = True  # Set to False to disable texture atlas rendering
+        self.atlas_stats = {
+            "atlases_used": 0,
+            "sprites_from_atlas": 0,
+            "texture_switches_saved": 0
+        }
+        
         # Surface caching
         self.text_surfaces = {}
         self.effect_surfaces = {}
@@ -49,6 +57,7 @@ class GameRenderer:
         self.show_dirty_rects = False
         self.show_performance = False
         self.show_batch_stats = False
+        self.show_atlas_stats = False
         
         # Last full redraw time
         self.last_full_redraw = 0
@@ -66,8 +75,7 @@ class GameRenderer:
             "draw_calls_saved": 0
         }
         
-        log_info("GameRenderer initialized with resolution {}x{} with sprite batching enabled".format(
-            screen_width, screen_height))
+        log_info(f"GameRenderer initialized with resolution {screen_width}x{screen_height} with sprite batching and texture atlas enabled")
 
     def set_background_image(self, surface):
         """Set the background directly from an already loaded surface."""
@@ -165,11 +173,17 @@ class GameRenderer:
             # Partial redraw - just update dirty areas
             self.clear_previous(sprites)
         
-        # Reset batch statistics for this frame
+        # Reset statistics for this frame
         if self.show_batch_stats:
             frame_batches = 0
             frame_batched_sprites = 0
             frame_draw_calls_saved = 0
+            
+        # Reset texture atlas stats
+        if self.show_atlas_stats:
+            self.atlas_stats["atlases_used"] = 0
+            self.atlas_stats["sprites_from_atlas"] = 0
+            self.atlas_stats["texture_switches_saved"] = 0
 
         # Cull sprites outside viewport (optimization)
         visible_sprites = []
@@ -178,6 +192,10 @@ class GameRenderer:
         # Organize sprites into batches based on their image
         batches = {}
         non_batchable = []
+        
+        # Track atlas usage
+        used_atlases = set()
+        atlas_sprites = 0
         
         # First pass: organize sprites into potential batches by image id
         batch_counter = 0
@@ -206,150 +224,173 @@ class GameRenderer:
                     
             batch_counter += 1
             
-            # Store previous position for next frame's cleanup
-            if not hasattr(sprite, 'prev_rect') or sprite.prev_rect is None:
-                sprite.prev_rect = pygame.Rect(sprite.rect)
-            else:
-                sprite.prev_rect.x = sprite.rect.x
-                sprite.prev_rect.y = sprite.rect.y
-                sprite.prev_rect.width = sprite.rect.width
-                sprite.prev_rect.height = sprite.rect.height
+            # Add sprite to visible list
+            visible_sprites.append(sprite)
             
-            # Only process if visible (intersects with screen)
-            if sprite.rect.colliderect(screen_rect):
-                visible_sprites.append(sprite)
+            # Store previous rectangle for dirty rect rendering
+            if hasattr(sprite, 'rect'):
+                sprite.prev_rect = sprite.rect.copy()
                 
-                # Check if sprite can be batched (has same image as others)
-                if self.batch_enabled and hasattr(sprite, 'image') and sprite.image is not None:
-                    # Use image memory address as batch key
-                    batch_key = id(sprite.image)
+            # Check for atlas texture support
+            if self.use_texture_atlas and hasattr(sprite, 'atlas_info'):
+                atlas_info = sprite.atlas_info
+                if atlas_info and 'atlas' in atlas_info and 'region' in atlas_info:
+                    # This sprite uses a texture atlas - handle differently
+                    atlas_name = atlas_info['atlas']
+                    used_atlases.add(atlas_name)
+                    atlas_sprites += 1
                     
-                    # Skip batching for sprites with special rendering needs
-                    if (hasattr(sprite, 'no_batch') and sprite.no_batch) or \
-                       (hasattr(sprite, 'alpha') and sprite.alpha < 255) or \
-                       (hasattr(sprite, 'rotation') and sprite.rotation != 0):
-                        non_batchable.append(sprite)
-                        continue
+                    # Add to special atlas batch
+                    if atlas_name not in batches:
+                        batches[atlas_name] = []
+                    batches[atlas_name].append(sprite)
+                    continue
+            
+            # Standard sprite batching (for non-atlas sprites)
+            if self.batch_enabled and hasattr(sprite, 'image') and sprite.image:
+                # Check if this sprite can be batched
+                can_batch = True
+                
+                # Don't batch sprites with special render flags or alpha blending
+                if (hasattr(sprite, 'special_flags') and sprite.special_flags) or \
+                   (hasattr(sprite, 'alpha') and sprite.alpha != 255):
+                    can_batch = False
                     
-                    # Add to appropriate batch
-                    if batch_key in batches:
-                        batches[batch_key].append(sprite)
-                    else:
-                        batches[batch_key] = [sprite]
+                if can_batch:
+                    # Use image id for batching (memory address as a proxy)
+                    img_id = id(sprite.image)
+                    if img_id not in batches:
+                        batches[img_id] = []
+                    batches[img_id].append(sprite)
                 else:
                     non_batchable.append(sprite)
-        
-        # Second pass: render the batches
-        total_batches = 0
-        total_batched_sprites = 0
-        
-        for batch_key, batch_sprites in batches.items():
-            # Only batch if we have enough sprites to make it worthwhile
-            if len(batch_sprites) >= self.min_batch_size:
-                # Get the shared image
-                shared_image = batch_sprites[0].image
-                
-                # Draw all sprites with the same image in one batch
-                positions = [sprite.rect for sprite in batch_sprites]
-                
-                # Create dirty rect encompassing all sprites in batch
-                if positions:
-                    batch_rect = positions[0].unionall(positions)
-                    self.dirty_rects.append(batch_rect.inflate(4, 4))
-                
-                # Blit all sprites in batch
-                for sprite in batch_sprites:
-                    self.screen.blit(shared_image, sprite.rect)
-                
-                # Update batch statistics
-                total_batches += 1
-                total_batched_sprites += len(batch_sprites)
-                
-                # Draw calls saved = sprites in batch - 1 
-                # (we made 1 logical batch instead of individual draws)
-                draw_calls_saved = len(batch_sprites) - 1
-                
-                if self.show_batch_stats:
-                    frame_batches += 1
-                    frame_batched_sprites += len(batch_sprites)
-                    frame_draw_calls_saved += draw_calls_saved
             else:
-                # Not enough sprites to justify batching, treat as individual
+                non_batchable.append(sprite)
+        
+        # Second pass: render batches and individual sprites
+        batch_count = 0
+        sprites_in_batches = 0
+        
+        # Render sprites in batches for better performance
+        for batch_id, batch_sprites in batches.items():
+            # Check if this is an atlas batch
+            is_atlas_batch = isinstance(batch_id, str) and self.use_texture_atlas
+            
+            # Skip small batches unless it's an atlas batch
+            if not is_atlas_batch and len(batch_sprites) < self.min_batch_size:
                 non_batchable.extend(batch_sprites)
+                continue
+                
+            # Draw the batch
+            if is_atlas_batch:
+                # Atlas batches need special rendering to use the shared texture
+                atlas_name = batch_id
+                self._draw_atlas_batch(batch_sprites, atlas_name)
+                
+                # Update stats
+                if self.show_atlas_stats:
+                    self.atlas_stats["sprites_from_atlas"] += len(batch_sprites)
+                    self.atlas_stats["texture_switches_saved"] += len(batch_sprites) - 1
+            else:
+                # Regular batching (same image)
+                for sprite in batch_sprites:
+                    # Draw the sprite
+                    if hasattr(sprite, 'image') and sprite.image and hasattr(sprite, 'rect') and sprite.rect:
+                        self.screen.blit(sprite.image, sprite.rect)
+                        self.dirty_rects.append(sprite.rect.inflate(4, 4))  # Slightly larger for clean rendering
+            
+            batch_count += 1
+            sprites_in_batches += len(batch_sprites)
         
-        # Draw non-batchable sprites individually
+        # Render non-batchable sprites individually
         for sprite in non_batchable:
-            if hasattr(sprite, 'image') and sprite.image is not None:
+            if hasattr(sprite, 'image') and sprite.image and hasattr(sprite, 'rect') and sprite.rect:
                 self.screen.blit(sprite.image, sprite.rect)
-                # Add to dirty rectangles for updating - with a small padding
-                padded_rect = pygame.Rect(sprite.rect).inflate(2, 2)
-                self.dirty_rects.append(padded_rect)
+                self.dirty_rects.append(sprite.rect.inflate(4, 4))  # Slightly larger for clean rendering
         
-        # Update global batch statistics
-        self.batch_stats["batches_created"] += total_batches
-        self.batch_stats["sprites_batched"] += total_batched_sprites
-        self.batch_stats["draw_calls_saved"] += total_batched_sprites - total_batches
-        
-        # Optimize dirty rectangles to reduce overdraw
+        # Update batching statistics
+        if self.show_batch_stats:
+            self.batch_stats["batches_created"] += batch_count
+            self.batch_stats["sprites_batched"] += sprites_in_batches
+            self.batch_stats["draw_calls_saved"] += sprites_in_batches - batch_count
+            
+        # Update atlas statistics
+        if self.show_atlas_stats:
+            self.atlas_stats["atlases_used"] = len(used_atlases)
+            
+        # Optimize dirty rects to avoid redundant updates
         self.dirty_rects = self._optimize_rects(self.dirty_rects)
         
-        # Update the display - only update modified areas
-        if self.dirty_rects:
-            pygame.display.update(self.dirty_rects)
-            self.rect_count += len(self.dirty_rects)
-            
-        # Draw debug visualizations if enabled
+        # Draw debug visualization
         if self.show_dirty_rects:
             for rect in self.dirty_rects:
                 pygame.draw.rect(self.screen, (255, 0, 0), rect, 1)
-            pygame.display.update()
         
-        # Display batch statistics if enabled
+        # Show batch statistics if enabled
         if self.show_batch_stats:
-            info_text = f"Batches: {frame_batches} | Sprites: {frame_batched_sprites} | Saved calls: {frame_draw_calls_saved}"
-            debug_font = pygame.font.Font(None, 24)
-            text_surf = debug_font.render(info_text, True, (0, 255, 0))
-            self.screen.blit(text_surf, (10, self.screen_height - 30))
-            pygame.display.update(pygame.Rect(10, self.screen_height - 30, 400, 30))
+            stats_text = f"Batches: {batch_count}, Sprites: {sprites_in_batches}, Saved: {sprites_in_batches - batch_count}"
+            stats_surface = pygame.font.Font(None, 20).render(stats_text, True, (255, 255, 0))
+            self.screen.blit(stats_surface, (10, self.screen_height - 60))
+            
+        # Show atlas statistics if enabled
+        if self.show_atlas_stats:
+            stats_text = f"Atlases: {self.atlas_stats['atlases_used']}, Atlas Sprites: {self.atlas_stats['sprites_from_atlas']}, Saved: {self.atlas_stats['texture_switches_saved']}"
+            stats_surface = pygame.font.Font(None, 20).render(stats_text, True, (0, 255, 255))
+            self.screen.blit(stats_surface, (10, self.screen_height - 40))
         
-        # Update performance metrics
-        self.total_render_time += time.time() - start_time
+        # Update the display
+        pygame.display.update(self.dirty_rects)
+        
+        # Performance timing
+        render_time = time.time() - start_time
+        if self.performance_monitor:
+            self.performance_monitor.end_section("render")
+        
+        self.total_render_time += render_time
         self.render_count += 1
+        self.rect_count += len(self.dirty_rects)
         
-        if current_time - self.last_update_time >= self.report_interval:
-            avg_render_time = self.total_render_time / max(1, self.render_count)
+        # Report performance metrics periodically
+        if time.time() - self.last_update_time > self.report_interval:
+            avg_time = self.total_render_time / max(1, self.render_count)
             avg_rects = self.rect_count / max(1, self.render_count)
-            log_performance("Render time", avg_render_time)
-            log_performance("Dirty rects/frame", avg_rects)
-            
-            # Report batching statistics
-            if self.batch_enabled:
-                avg_batches = self.batch_stats["batches_created"] / max(1, self.render_count)
-                avg_sprites = self.batch_stats["sprites_batched"] / max(1, self.render_count)
-                avg_calls_saved = self.batch_stats["draw_calls_saved"] / max(1, self.render_count)
-                
-                log_performance("Sprite batches/frame", avg_batches)
-                log_performance("Sprites batched/frame", avg_sprites)
-                log_performance("Draw calls saved/frame", avg_calls_saved)
-                
-                # Reset batch statistics
-                self.batch_stats = {
-                    "batches_created": 0,
-                    "sprites_batched": 0,
-                    "draw_calls_saved": 0
-                }
-            
-            # Reset counters
+            #log_performance(f"Rendering Avg: {avg_time*1000:.2f}ms, {avg_rects:.1f} rects/frame")
             self.total_render_time = 0
             self.render_count = 0
             self.rect_count = 0
-            self.last_update_time = current_time
-            
-        # Clear dirty rects for next frame
-        self.dirty_rects = []
+            self.last_update_time = time.time()
         
         return visible_sprites
-
+        
+    def _draw_atlas_batch(self, sprites, atlas_name):
+        """
+        Draw sprites that share the same texture atlas.
+        This is more efficient as it eliminates texture switching.
+        
+        Args:
+            sprites: List of sprites using the same atlas
+            atlas_name: Name of the atlas
+        """
+        # Group by source atlas to minimize texture switching
+        for sprite in sprites:
+            if hasattr(sprite, 'atlas_info') and sprite.atlas_info:
+                # Get atlas region information
+                region = sprite.atlas_info.get('region')
+                if region and sprite.rect:
+                    # Draw directly from the atlas texture to the screen
+                    if hasattr(sprite, 'atlas_surface') and sprite.atlas_surface:
+                        # The sprite already has a reference to the atlas surface
+                        self.screen.blit(sprite.atlas_surface, sprite.rect, region)
+                    else:
+                        # Look up the source rectangle in the atlas
+                        # Note: We don't have direct access to the atlas here, 
+                        # so the sprite should have the needed info
+                        if hasattr(sprite, 'image') and sprite.image:
+                            self.screen.blit(sprite.image, sprite.rect)
+                            
+                    # Add to dirty rects
+                    self.dirty_rects.append(sprite.rect.inflate(4, 4))
+    
     def _optimize_rects(self, rects):
         """Optimize dirty rectangles by merging overlapping ones."""
         if not rects:
@@ -391,7 +432,17 @@ class GameRenderer:
             result = self._optimize_rects(result)
             
         return result
-
+    
+    def toggle_atlas_stats_display(self):
+        """Toggle display of texture atlas statistics."""
+        self.show_atlas_stats = not self.show_atlas_stats
+        return self.show_atlas_stats
+        
+    def set_texture_atlas_enabled(self, enabled):
+        """Enable or disable texture atlas rendering."""
+        self.use_texture_atlas = enabled
+        return self.use_texture_atlas
+        
     def draw_text(self, text, x, y, color=(255, 255, 255), font=None, centered=False):
         """Draw text efficiently with caching."""
         if font is None:
