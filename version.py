@@ -2,14 +2,14 @@
 Space Shooter Game - Version Information
 """
 
-VERSION = "0.6.1"
+VERSION = "0.6.2"
 VERSION_NAME = "Asset Management"
 RELEASE_DATE = "2024-05-01"
 
 VERSION_INFO = {
     "major": 0,
     "minor": 6,
-    "patch": 1,
+    "patch": 2,
     "status": "stable",
     "features": [
         "Comprehensive asset preloading system",
@@ -21,7 +21,8 @@ VERSION_INFO = {
         "Enhanced UI elements",
         "Cached asset loading",
         "Improved visual effects",
-        "Fixed power-up initialization bugs"
+        "Fixed power-up initialization bugs",
+        "Texture atlas support for reduced GPU texture switching"
     ],
     "credits": {
         "lead_developer": "Mineser Team",
