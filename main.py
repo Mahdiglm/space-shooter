@@ -13,6 +13,7 @@ from game_logger import logger, log_error, log_info, log_warning, log_game_event
 from game_exceptions import *
 from game_config import *
 from version import VERSION, VERSION_NAME
+from asset_loader import AssetLoader
 
 # Initialize Pygame
 pygame.init()
@@ -147,42 +148,38 @@ class Player(pygame.sprite.Sprite):
     """
     def __init__(self):
         super().__init__()
-        if player_img:
-            self.image = player_img
-            self.original_image = player_img
-        else:
-            self.image = pygame.Surface((50, 40))
-            self.image.fill(WHITE)
-            self.original_image = self.image.copy()
-        
+        # Image will be set by Game class when asset loader is initialized
+        self.image = pygame.Surface((50, 40), pygame.SRCALPHA)
+        self.image.fill((255, 0, 0))  # Temporary color
         self.rect = self.image.get_rect()
-        # The radius attribute is used for circular collision detection
-        # This provides more accurate and efficient collision checking
-        self.radius = 20
-        self.rect.centerx = WINDOW_WIDTH // 2
+        self.rect.centerx = WINDOW_WIDTH / 2
         self.rect.bottom = WINDOW_HEIGHT - 10
+        self.prev_rect = self.rect.copy()  # For dirty rect rendering
+        self.visible = True
         
-        # Base stats from config
-        self.speed = GAME_BALANCE['player']['base_speed']
+        # Set up circular collision area
+        self.radius = 20  # Used for circular collision detection
+        
+        # Player attributes
         self.health = GAME_BALANCE['player']['base_health']
         self.max_health = GAME_BALANCE['player']['base_health']
-        self.power_level = 1
+        self.speed = GAME_BALANCE['player']['base_speed']
         self.shoot_delay = GAME_BALANCE['player']['base_shoot_delay']
-        self.last_shot = 0
+        self.last_shot = pygame.time.get_ticks()
+        self.power_level = 1
+        self.max_power_level = GAME_BALANCE['player']['max_power_level']
         
-        # Power-up effects
-        self.invulnerable = False
-        self.invulnerable_timer = 0
-        self.invulnerable_duration = POWERUP_TYPES['shield']['duration']
-        self.rapid_fire_end = 0
-        self.points_multiplier = 1
-        self.double_points_end = 0
+        # Shield effect
+        self.has_shield = False
+        self.shield_end_time = 0
         
-        # Visual effects
-        self.animation_tick = 0
-        self.hit = False
-        self.hit_time = 0
-        self.hit_duration = VISUAL_SETTINGS['damage_flash_duration']
+        # Visual effect variables
+        self.damage_flash = False
+        self.flash_start = 0
+        self.flash_duration = VISUAL_SETTINGS['damage_flash_duration']
+        
+        # Original image for special effects
+        self.base_image = None
 
     def update(self):
         # Movement
@@ -206,24 +203,24 @@ class Player(pygame.sprite.Sprite):
             log_game_event("PowerUp", "Double points ended")
         
         # Update damage flash
-        if self.hit:
-            if current_time - self.hit_time > self.hit_duration:
-                self.hit = False
-                self.image = self.original_image.copy()
+        if self.damage_flash:
+            if current_time - self.flash_start > self.flash_duration:
+                self.damage_flash = False
+                self.image = self.base_image.copy()
         
         # Update invulnerability
-        if self.invulnerable:
+        if self.has_shield:
             self.animation_tick += 1
             if self.animation_tick % VISUAL_SETTINGS['shield_blink_rate'] == 0:
-                if not self.hit:
+                if not self.damage_flash:
                     if self.image.get_alpha() == 255 or self.image.get_alpha() is None:
                         self.image.set_alpha(128)
                     else:
                         self.image.set_alpha(255)
             
-            if current_time - self.invulnerable_timer > self.invulnerable_duration:
-                self.invulnerable = False
-                self.image = self.original_image.copy()
+            if current_time - self.shield_end_time > SHIELD_DURATION:
+                self.has_shield = False
+                self.image = self.base_image.copy()
                 self.image.set_alpha(255)
                 log_game_event("PowerUp", "Shield deactivated")
 
@@ -263,11 +260,11 @@ class Player(pygame.sprite.Sprite):
         Returns:
             bool: True if the player is still alive, False if dead
         """
-        if not self.invulnerable:
+        if not self.has_shield:
             self.health -= amount
-            self.hit = True
-            self.hit_time = pygame.time.get_ticks()
-            temp_img = self.original_image.copy()
+            self.damage_flash = True
+            self.flash_start = pygame.time.get_ticks()
+            temp_img = self.base_image.copy()
             temp_img.fill(RED, special_flags=pygame.BLEND_RGB_ADD)
             self.image = temp_img
             log_game_event("Damage", f"Player took {amount} damage. Health: {self.health}")
@@ -285,21 +282,9 @@ class Enemy(pygame.sprite.Sprite):
         self.enemy_type = enemy_type
         self.config = ENEMY_TYPES[enemy_type]
         
-        # Load appropriate image
-        if enemy_type == 'regular' and enemy_img:
-            self.image = enemy_img
-        elif enemy_type == 'fast' and fast_enemy_img:
-            self.image = fast_enemy_img
-        elif enemy_type == 'tank' and tank_enemy_img:
-            self.image = tank_enemy_img
-        elif enemy_type == 'boss' and boss_enemy_img:
-            self.image = boss_enemy_img
-        else:
-            self.image = pygame.Surface((30, 30))
-            self.image.fill(self.config['color'])
-        
-        self.rect = self.image.get_rect()
-        self.radius = 15
+        # Image will be set by Game class when asset loader is initialized
+        self.image = pygame.Surface((30, 30), pygame.SRCALPHA)
+        self.image.fill((0, 0, 255))  # Temporary color
         
         # Apply difficulty scaling
         self.health = int(self.config['health'] * (1 + (difficulty - 1) * DIFFICULTY_SCALING['enemy_health']['increase_rate']))
@@ -575,9 +560,8 @@ class PowerUp(pygame.sprite.Sprite):
             log_game_event("PowerUp", f"Power level increased to: {player.power_level}")
             
         elif self.power_type == 'shield':
-            player.invulnerable = True
-            player.invulnerable_timer = pygame.time.get_ticks()
-            player.invulnerable_duration = self.config['duration']
+            player.has_shield = True
+            player.shield_end_time = pygame.time.get_ticks() + self.config['duration']
             log_game_event("PowerUp", "Shield activated")
             
         elif self.power_type == 'rapid_fire':
@@ -609,16 +593,15 @@ class Bullet(pygame.sprite.Sprite):
     """
     def __init__(self, x, y):
         super().__init__()
-        if bullet_img:
-            self.image = bullet_img
-        else:
-            self.image = pygame.Surface((5, 10))
-            self.image.fill(WHITE)
+        # Image will be set by Game class when asset loader is initialized
+        self.image = pygame.Surface((5, 10), pygame.SRCALPHA)
+        self.image.fill((255, 255, 255))  # Temporary color
         self.rect = self.image.get_rect()
-        self.radius = 3  # Collision radius
+        self.radius = 2  # Collision radius
         self.rect.centerx = x
         self.rect.bottom = y
         self.speedy = -10
+        self.prev_rect = self.rect.copy()  # For dirty rect rendering
 
     def update(self):
         """
@@ -748,6 +731,9 @@ class Game:
             self.clock = pygame.time.Clock()
             self.screen = self.renderer.get_screen()
             
+            # Initialize the asset loader for centralized asset management
+            self.asset_loader = AssetLoader()
+            
             # Initialize player
             self.player = Player()
             
@@ -761,7 +747,7 @@ class Game:
             self.load_assets()
             
             # Create background stars if no background image
-            if background_img is None:
+            if not self.renderer.background:
                 for i in range(50):
                     star = Star()
                     self.sprite_manager.add_sprite(star, 'background')
@@ -781,33 +767,35 @@ class Game:
 
     def load_assets(self):
         """
-        Load all game assets (images, sounds).
-        Handles fallbacks for missing assets.
+        Load all game assets using the AssetLoader preloading system.
+        Assets will be loaded at startup to prevent lag spikes during gameplay.
         """
         try:
             self.perf_monitor.start_section("loading")
-            start_time = time.time()
             
             log_info("Loading game assets...")
             
-            # Load background image
+            # Preload all assets at once
+            loading_stats = self.asset_loader.preload_all_assets(self.screen_width, self.screen_height)
+            
+            # Update the renderer with loaded assets
+            background_img = self.asset_loader.get_image("background")
             if background_img:
-                # Set background directly using background_img since it's already loaded
                 self.renderer.set_background_image(background_img)
-            else:
-                # Just set a background color if no image
-                log_warning("Background image not found. Using black background.")
             
-            # Cache commonly used game images
-            if player_img:
-                self.renderer.add_to_cache("player", player_img)
-            if enemy_img:
-                self.renderer.add_to_cache("enemy", enemy_img)
-            if bullet_img:
-                self.renderer.add_to_cache("bullet", bullet_img)
+            # Cache commonly used game images in the renderer
+            for key in ["player", "enemy", "fast_enemy", "tank_enemy", "boss_enemy", "bullet"]:
+                img = self.asset_loader.get_image(key)
+                if img:
+                    self.renderer.add_to_cache(key, img)
             
-            load_time = time.time() - start_time
-            log_performance("Asset Loading", load_time)
+            # Log detailed loading statistics
+            log_info(f"Asset loading complete. Loaded {loading_stats['loaded_assets']} of " + 
+                     f"{loading_stats['total_assets']} assets in {loading_stats['loading_time']:.2f}s")
+                     
+            if loading_stats['failed_assets'] > 0:
+                log_warning(f"Failed to load {loading_stats['failed_assets']} assets, using fallbacks")
+            
             self.perf_monitor.end_section("loading")
             log_info("All assets loaded successfully")
         except Exception as e:
@@ -824,15 +812,9 @@ class Game:
         Returns:
             Surface: Loaded image or None if failed
         """
-        try:
-            filepath = os.path.join(IMG_DIR, filename)
-            return pygame.image.load(filepath).convert_alpha()
-        except pygame.error as e:
-            log_warning(f"Could not load image: {filename}")
-            return None
-        except FileNotFoundError as e:
-            log_warning(f"Image file not found: {filename}")
-            return None
+        # Use asset_loader's cached images
+        key = os.path.splitext(filename)[0]  # Remove extension to use as key
+        return self.asset_loader.get_image(key)
 
     def load_sound(self, filename):
         """
@@ -844,15 +826,9 @@ class Game:
         Returns:
             Sound: Loaded sound or None if failed
         """
-        try:
-            filepath = os.path.join(SOUND_DIR, filename)
-            return pygame.mixer.Sound(filepath)
-        except pygame.error:
-            log_warning(f"Could not load sound: {filename}")
-            return None
-        except FileNotFoundError:
-            log_warning(f"Sound file not found: {filename}")
-            return None
+        # Use asset_loader's cached sounds
+        key = os.path.splitext(filename)[0]  # Remove extension to use as key
+        return self.asset_loader.get_sound(key)
 
     def handle_input(self):
         """
@@ -976,7 +952,7 @@ class Game:
         self.player.rect.bottom = WINDOW_HEIGHT - 10
         self.player.health = self.player.max_health
         self.player.power_level = 1
-        self.player.invulnerable = False
+        self.player.has_shield = False
         
         # Register player again
         self.collision_system.register_static_object(self.player)
@@ -1094,7 +1070,7 @@ class Game:
             
             # Process player-enemy collisions (high priority)
             def player_enemy_callback(player, enemy):
-                if not player.invulnerable:
+                if not player.has_shield:
                     # Player takes damage
                     if not player.take_damage():
                         # Player was destroyed
@@ -1141,7 +1117,7 @@ class Game:
             
             # Process player-enemy bullet collisions (high priority)
             def player_enemy_bullet_callback(player, bullet):
-                if not player.invulnerable:
+                if not player.has_shield:
                     # Player takes damage
                     if not player.take_damage():
                         # Player was destroyed
@@ -1230,8 +1206,8 @@ class Game:
         self.draw_health_bar(self.renderer.screen, 10, 80, self.player.health / self.player.max_health)
         
         # Shield timer if active
-        if self.player.invulnerable:
-            shield_pct = (pygame.time.get_ticks() - self.player.invulnerable_timer) / self.player.invulnerable_duration
+        if self.player.has_shield:
+            shield_pct = (pygame.time.get_ticks() - self.player.shield_end_time) / SHIELD_DURATION
             self.renderer.draw_text(f"Shield: {(1-shield_pct)*100:.0f}%", self.screen_width - 150, 10, (255, 255, 0), small_font)
         
         # FPS counter if enabled
@@ -1303,72 +1279,57 @@ class Game:
         Handles timing, input, updates, and rendering with performance monitoring.
         """
         try:
+            # Start background music
+            if hasattr(self, 'asset_loader'):
+                self.asset_loader.play_sound("background_music")
+            
+            # Start main loop
+            self.running = True
             log_info("Starting game loop")
             
-            # Play background music if available
-            try:
-                pygame.mixer.music.play(loops=-1)
-            except:
-                log_warning("Could not play background music")
-            
-            # Force an initial full redraw
-            self.renderer.force_full_redraw()
-            
-            # Main game loop
             while self.running:
-                # Start timing the frame
+                # Start frame timing
                 self.perf_monitor.start_frame()
                 
-                # Handle input
+                # Process input
+                self.perf_monitor.start_section("input")
                 self.handle_input()
+                self.perf_monitor.end_section("input")
                 
-                # Skip updates if paused or game over
-                if not self.paused and not self.game_over:
-                    # Update game state
-                    self.update()
-                    
-                    # Handle player shooting
-                    keys = pygame.key.get_pressed()
-                    if keys[pygame.K_SPACE]:
-                        new_bullets = self.player.shoot()
-                        for bullet in new_bullets:
-                            self.sprite_manager.add_sprite(bullet, 'bullet')
-                    
-                    # Spawn enemies based on time
-                    current_time = pygame.time.get_ticks()
-                    if current_time - self.last_enemy_spawn > 1000: # Spawn every 1 second
-                        self.last_enemy_spawn = current_time
-                        enemy = self.spawn_enemy()
-                        self.sprite_manager.add_sprite(enemy, 'enemy')
-                    
-                    # Handle boss spawning
-                    if not self.boss_spawned and self.score >= BOSS_SPAWN_SCORE:
-                        boss = BossEnemy()
-                        self.sprite_manager.add_sprite(boss, 'enemy')
-                        self.boss_spawned = True
-                        log_game_event("Boss", "Boss enemy spawned")
+                if self.game_over:
+                    self.show_game_over()
+                    continue
                 
-                # Render the game
+                if self.paused:
+                    self.show_pause_screen()
+                    continue
+                
+                # Update game state
+                self.perf_monitor.start_section("update")
+                self.update()
+                self.perf_monitor.end_section("update")
+                
+                # Render frame
+                self.perf_monitor.start_section("render")
                 self.render()
+                self.perf_monitor.end_section("render")
                 
-                # End timing the frame
+                # End frame timing
                 self.perf_monitor.end_frame()
                 
-                # Limit the frame rate - but don't use clock.tick which blocks
-                # Instead, just sleep for a tiny amount if we're ahead of schedule
-                frame_time = time.time() - self.perf_monitor.frame_start_time
-                if frame_time < 1/60:  # If we're running faster than 60 FPS
-                    time.sleep(max(0, (1/60) - frame_time))
+                # Cap the frame rate
+                self.clock.tick(60)
             
-            log_info("Game loop ended normally")
-        except GameError as e:
-            log_error(e, "Game error occurred")
-            self.handle_game_error(e)
-        except Exception as e:
-            log_error(e, "Unexpected error in game loop")
-            self.handle_game_error(e)
-        finally:
+            # Cleanup on exit
             self.cleanup()
+            return 0
+        except GameError as e:
+            self.handle_game_error(e)
+            return 1
+        except Exception as e:
+            log_error(e, "Unhandled error in game loop")
+            self.show_error_screen(str(e))
+            return 1
 
     def handle_game_error(self, error):
         """
@@ -1428,88 +1389,116 @@ class Game:
                     waiting = False
 
     def create_explosion(self, center, size="lg"):
-        """
-        Create an explosion animation at the specified position.
+        """Create an explosion animation at the given center point."""
+        # Create explosion sprite
+        explosion = Explosion(center, size)
         
-        Args:
-            center (tuple): Center position for the explosion (x, y)
-            size (str): Size of the explosion ("sm", "lg", or "xl")
-        """
-        try:
-            # Determine explosion size in pixels
-            if size == "sm":
-                explosion_size = 20
-            elif size == "lg":
-                explosion_size = 40
-            elif size == "xl":
-                explosion_size = 60
-            else:
-                explosion_size = 30
+        # Set animation frames if available
+        if hasattr(self, 'asset_loader'):
+            frames = self.asset_loader.get_animation("explosion")
+            if frames:
+                explosion.frames = frames
+                explosion.image = frames[0]
+                explosion.rect = explosion.image.get_rect()
+                explosion.rect.center = center
+        
+        self.sprite_manager.add_sprite(explosion, 'effects')
+        
+        # Play explosion sound
+        if hasattr(self, 'asset_loader'):
+            self.asset_loader.play_sound("explosion")
             
-            # Create explosion sprite and add to sprite manager
-            explosion = Explosion(center, explosion_size)
-            self.sprite_manager.add_sprite(explosion, 'explosion')
-            
-            # Play explosion sound if available
-            if explosion_sound:
-                explosion_sound.play()
-            
-            log_game_event("Explosion", f"Created {size} explosion at {center}")
-        except Exception as e:
-            log_error(e, "Error creating explosion")
+        return explosion
 
     def spawn_enemy(self):
-        """
-        Spawn a new enemy based on probability and return it.
-        Handles enemy type selection based on ENEMY_TYPES configuration.
+        """Spawn an enemy of random type based on difficulty."""
+        # Random enemy type with weighted probability
+        enemy_types = []
         
-        Returns:
-            Enemy: A new enemy sprite
-        """
-        enemy_type = random.random()
-        if enemy_type < 0.6:
-            enemy = Enemy()
-        elif enemy_type < 0.8:
-            enemy = FastEnemy()
-        else:
-            enemy = TankEnemy()
-        enemy.speedy *= self.difficulty
-        return enemy
-    
-    def spawn_powerup(self, x, y):
-        """
-        Spawn a random power-up at the given position.
+        # Always include regular enemies
+        enemy_types.append('regular')
         
-        Args:
-            x (int): X position
-            y (int): Y position
+        # Add fast enemies after score > 200
+        if self.score > 200:
+            enemy_types.append('fast')
+        
+        # Add tank enemies after score > 500
+        if self.score > 500:
+            enemy_types.append('tank')
             
-        Returns:
-            PowerUp: A new power-up sprite
-        """
-        power_type = random.choice(["health", "power", "shield"])
-        return PowerUp(x, y, power_type)
+        # Random selection from available types
+        enemy_type = random.choice(enemy_types)
+        
+        # Create appropriate enemy type
+        if enemy_type == 'fast':
+            enemy = FastEnemy()
+        elif enemy_type == 'tank':
+            enemy = TankEnemy()
+        else:
+            enemy = Enemy()
+            
+        # Set the appropriate image from asset loader
+        if hasattr(self, 'asset_loader'):
+            image_key = f"{enemy_type}_enemy" if enemy_type != "regular" else "enemy"
+            enemy.image = self.asset_loader.get_image(image_key)
+            # Save original image for effects
+            enemy.base_image = enemy.image
+            # Update rect and radius based on image
+            enemy.rect = enemy.image.get_rect()
+            enemy.rect.x = random.randrange(0, WINDOW_WIDTH - enemy.rect.width)
+            enemy.rect.y = random.randrange(-150, -100)
+            enemy.prev_rect = enemy.rect.copy()
+            enemy.radius = enemy.rect.width // 2
+        
+        return enemy
+        
+    def spawn_powerup(self, x, y):
+        """Spawn a random powerup at the specified location."""
+        # Determine power-up type (health, power, shield)
+        power_types = ['health', 'power', 'shield']
+        power_type = random.choice(power_types)
+        
+        # Create power-up
+        powerup = PowerUp(x, y, power_type)
+        
+        # Set image from asset loader
+        if hasattr(self, 'asset_loader'):
+            image_key = f"{power_type}_powerup"
+            powerup.image = self.asset_loader.get_image(image_key)
+            # Update rect based on image
+            powerup.rect = powerup.image.get_rect()
+            powerup.rect.centerx = x
+            powerup.rect.centery = y
+            powerup.prev_rect = powerup.rect.copy()
+            powerup.radius = powerup.rect.width // 2
+        
+        self.sprite_manager.add_sprite(powerup, 'powerup')
+        
+        return powerup
 
     def show_game_over(self):
-        """
-        Display the game over screen with final score.
-        """
-        # Semi-transparent overlay
-        overlay = pygame.Surface((self.screen_width, self.screen_height), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 180))  # More opaque
-        self.screen.blit(overlay, (0, 0))
+        """Show game over screen and wait for restart."""
+        # Play game over sound
+        if hasattr(self, 'asset_loader'):
+            self.asset_loader.play_sound("game_over")
+            
+        # Draw game over text
+        self.screen.fill(BLACK)
+        game_over_text = self.asset_loader.get_font("large").render("GAME OVER", True, RED)
+        score_text = self.asset_loader.get_font("main").render(f"Score: {self.score}", True, WHITE)
+        high_score_text = self.asset_loader.get_font("main").render(f"High Score: {self.high_score}", True, WHITE)
+        restart_text = self.asset_loader.get_font("small").render("Press 'R' to restart or ESC to quit", True, WHITE)
         
-        game_over_text = font.render("GAME OVER! Press R to restart", True, (255, 255, 255))
-        score_text = font.render(f"Final Score: {self.score}", True, (255, 255, 255))
-        high_score_text = font.render(f"High Score: {self.high_score}", True, (255, 255, 0))
+        self.screen.blit(game_over_text, (WINDOW_WIDTH//2 - game_over_text.get_width()//2, WINDOW_HEIGHT//2 - 60))
+        self.screen.blit(score_text, (WINDOW_WIDTH//2 - score_text.get_width()//2, WINDOW_HEIGHT//2))
+        self.screen.blit(high_score_text, (WINDOW_WIDTH//2 - high_score_text.get_width()//2, WINDOW_HEIGHT//2 + 40))
+        self.screen.blit(restart_text, (WINDOW_WIDTH//2 - restart_text.get_width()//2, WINDOW_HEIGHT//2 + 100))
         
-        self.screen.blit(game_over_text, (self.screen_width//2 - game_over_text.get_width()//2, self.screen_height//2 - 60))
-        self.screen.blit(score_text, (self.screen_width//2 - score_text.get_width()//2, self.screen_height//2))
-        self.screen.blit(high_score_text, (self.screen_width//2 - high_score_text.get_width()//2, self.screen_height//2 + 40))
+        pygame.display.flip()
         
-        credit_text = small_font.render("Press ESC to quit", True, (255, 255, 255))
-        self.screen.blit(credit_text, (self.screen_width//2 - credit_text.get_width()//2, self.screen_height - 50))
-
+        # Wait for player input
+        self.wait_for_key()
+        
     def show_pause_screen(self):
         """
         Display pause screen overlay.
@@ -1587,17 +1576,18 @@ def main():
         log_info("Initializing Space Shooter game...")
         game = Game()
         
-        # Run the game
-        game.run()
+        # Update player and bullet images after asset loader is initialized
+        if hasattr(game, 'player') and hasattr(game, 'asset_loader'):
+            game.player.image = game.asset_loader.get_image("player")
+            game.player.base_image = game.player.image
         
-        # Clean exit
-        log_info("Game exited cleanly")
-        return 0
+        log_info("Starting game loop")
+        game.run()
     except Exception as e:
-        log_error(e, "Unhandled exception in main")
+        log_error(e, "Unhandled exception during game execution")
         pygame.quit()
-        return 1
+        sys.exit()
 
 # Run the game if this script is executed directly
 if __name__ == "__main__":
-    sys.exit(main())
+    main()

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Release Descriptions
 
+### Version 0.6.0 (Stable)
+
+A performance enhancement release that introduces a comprehensive asset preloading system. This version eliminates in-game loading lag by preloading all assets at startup, provides better asset management with caching, and implements robust fallback mechanisms for missing assets.
+
 ### Version 0.5.0 (Stable)
 
 A technical enhancement release that introduces comprehensive memory monitoring and leak detection capabilities. This version helps identify memory issues during development and provides tools for analyzing and optimizing memory usage during gameplay.
@@ -70,6 +74,36 @@ A bug-fix and improvement release that adds essential game features like scoring
 ### Version 0.1.0 (Pre-Alpha)
 
 The initial release of the Space Shooter game, establishing the basic game mechanics and structure. This version provides the foundation for all future development.
+
+## [0.6.0] - 2024-01-15
+
+### Added
+
+- Added centralized asset preloading system to prevent in-game lag spikes
+- Added comprehensive asset manifest for declarative asset definitions
+- Added caching system for all game assets (images, sounds, animations, fonts)
+- Added robust fallback mechanisms with default assets for missing files
+- Added detailed asset loading statistics and reporting
+- Added animation sequence preloading to improve explosion effects
+- Added improved sound loading with volume controls
+- Added font preloading and caching
+
+### Changed
+
+- Refactored asset loading to use the new AssetLoader class
+- Updated Game class to use preloaded assets
+- Updated sprite classes to use preloaded assets
+- Improved game initialization with better asset handling
+- Enhanced error handling for asset loading failures
+- Improved performance of the game startup process
+
+### Fixed
+
+- Fixed asset loading lag spikes during gameplay
+- Fixed inconsistent asset availability during game initialization
+- Fixed potential memory leaks from repeated asset loading
+- Fixed missing asset errors with proper fallback systems
+- Improved asset error handling and reporting
 
 ## [0.5.0] - 2023-12-15
 
