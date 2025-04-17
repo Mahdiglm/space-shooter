@@ -157,6 +157,10 @@ class Player(pygame.sprite.Sprite):
         self.prev_rect = self.rect.copy()  # For dirty rect rendering
         self.visible = True
         
+        # Texture atlas support
+        self.atlas_info = None  # Will be set if using texture atlas
+        self.atlas_surface = None  # Reference to the atlas surface
+        
         # Set up circular collision area
         self.radius = 20  # Used for circular collision detection
         
@@ -172,6 +176,14 @@ class Player(pygame.sprite.Sprite):
         # Shield effect
         self.has_shield = False
         self.shield_end_time = 0
+        
+        # Animation properties
+        self.animation_tick = 0
+        
+        # Power-up effect timers and multipliers
+        self.rapid_fire_end = 0
+        self.double_points_end = 0
+        self.points_multiplier = 1
         
         # Visual effect variables
         self.damage_flash = False
@@ -285,6 +297,10 @@ class Enemy(pygame.sprite.Sprite):
         # Image will be set by Game class when asset loader is initialized
         self.image = pygame.Surface((30, 30), pygame.SRCALPHA)
         self.image.fill((0, 0, 255))  # Temporary color
+        
+        # Texture atlas support
+        self.atlas_info = None  # Will be set if using texture atlas
+        self.atlas_surface = None  # Reference to the atlas surface
         
         # Apply difficulty scaling
         self.health = int(self.config['health'] * (1 + (difficulty - 1) * DIFFICULTY_SCALING['enemy_health']['increase_rate']))

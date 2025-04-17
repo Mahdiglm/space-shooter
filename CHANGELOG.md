@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Release Descriptions
 
+### Version 0.6.1 (Stable)
+
+A bugfix release that addresses issues with power-up handling in the Player class. This patch fixes initialization of several properties related to power-ups which could cause errors during gameplay, particularly when activating rapid fire and double points power-ups.
+
 ### Version 0.6.0 (Stable)
 
 A performance enhancement release that introduces a comprehensive asset preloading system. This version eliminates in-game loading lag by preloading all assets at startup, provides better asset management with caching, and implements robust fallback mechanisms for missing assets.
@@ -74,6 +78,17 @@ A bug-fix and improvement release that adds essential game features like scoring
 ### Version 0.1.0 (Pre-Alpha)
 
 The initial release of the Space Shooter game, establishing the basic game mechanics and structure. This version provides the foundation for all future development.
+
+## [0.6.1] - 2024-05-01
+
+### Fixed
+
+- Fixed potential AttributeError in Player class by properly initializing all power-up related properties
+- Added missing initialization for animation_tick property used in shield effects
+- Added missing initialization for rapid_fire_end property used in rapid fire power-ups
+- Added missing initialization for double_points_end property used in score multiplier power-ups
+- Added missing initialization for points_multiplier property used in score calculations
+- Improved Player class stability during power-up activation and deactivation
 
 ## [0.6.0] - 2024-01-15
 
