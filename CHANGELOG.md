@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Release Descriptions
 
+### Version 0.6.3 (Stable)
+
+A performance enhancement release that implements delta time handling for more consistent motion regardless of frame rate. This version replaces the simple sleep-based frame limiting with a more sophisticated approach using proper delta time calculations, resulting in smoother movement and more accurate physics at any frame rate.
+
 ### Version 0.6.2 (Stable)
 
 A performance enhancement release that implements texture atlas support for sprites. This version reduces GPU texture switching by combining multiple sprite images into unified texture atlases, resulting in improved rendering performance, especially when many different sprites are on-screen simultaneously.
@@ -82,6 +86,32 @@ A bug-fix and improvement release that adds essential game features like scoring
 ### Version 0.1.0 (Pre-Alpha)
 
 The initial release of the Space Shooter game, establishing the basic game mechanics and structure. This version provides the foundation for all future development.
+
+## [0.6.3] - 2024-05-01
+
+### Added
+
+- Added delta time handling for consistent motion at any frame rate
+- Added semi-fixed timestep game loop for stable physics
+- Added frame accumulator for time step regulation
+- Added smooth interpolation for sprite movement
+- Added time-scaled movement for enemies and player
+
+### Changed
+
+- Replaced sleep-based frame limiting with proper delta time handling
+- Improved Player and Enemy classes with delta time support
+- Enhanced game loop to use semi-fixed timestep physics updates
+- Optimized collision detection timing for variable frame rates
+- Improved animation timing for consistency across different hardware
+
+### Fixed
+
+- Fixed jerky movement at inconsistent frame rates
+- Fixed physics issues when running at very high or low frame rates
+- Fixed timing inconsistencies in power-up durations
+- Fixed animation timing at variable frame rates
+- Fixed enemy spawn rate inconsistencies at different frame rates
 
 ## [0.6.2] - 2024-05-01
 
