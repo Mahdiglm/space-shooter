@@ -6,7 +6,7 @@
 - [x] **Memory Usage Optimization**: Profile memory usage during gameplay to identify and fix potential memory leaks.
 - [x] **Asset Preloading**: Implement a formal asset preloading system that loads all assets at startup rather than on-demand.
 - [x] **Texture Atlas Implementation**: Convert individual sprite images to a texture atlas to reduce texture switching.
-- [ ] **Frame Limiting Improvement**: The current sleep-based frame limiting approach isn't precise - consider using pygame.time.Clock's tick method with proper delta-time handling.
+- [x] **Frame Limiting Improvement**: The current sleep-based frame limiting approach isn't precise - consider using pygame.time.Clock's tick method with proper delta-time handling.
 - [ ] **Background Rendering**: Consider rendering the background as a single large texture only when needed, rather than as multiple star sprites.
 - [ ] **Cache Optimization**: Implement intelligent cache eviction for image and text caches to prevent memory bloat.
 
